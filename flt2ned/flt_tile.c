@@ -94,9 +94,7 @@ static int flt_tile_importhdr(flt_tile_t* self, const char* fname)
 	FILE* f = fopen(fname, "r");
 	if(f == NULL)
 	{
-		// silently fail if hdr does not exist
-		// but if hdr exists then prj and flt
-		// must also exist
+		// skip silently
 		return 0;
 	}
 
@@ -193,7 +191,7 @@ static int flt_tile_importprj(flt_tile_t* self, const char* fname)
 	FILE* f = fopen(fname, "r");
 	if(f == NULL)
 	{
-		LOGE("fopen %s failed", fname);
+		// skip silently
 		return 0;
 	}
 
@@ -281,7 +279,7 @@ static int flt_tile_importflt(flt_tile_t* self, const char* fname)
 	FILE* f = fopen(fname, "r");
 	if(f == NULL)
 	{
-		LOGE("fopen %s failed", fname);
+		// skip silently
 		return 0;
 	}
 
@@ -381,17 +379,27 @@ flt_tile_t* flt_tile_import(int lat, int lon)
 
 	if(flt_tile_importhdr(self, hdr_fname) == 0)
 	{
+		// silently fail if hdr does not exist
+		// but if hdr exists then prj and flt
+		// must also exist
 		goto fail_hdr;
 	}
 
 	if(flt_tile_importprj(self, prj_fname) == 0)
 	{
+		LOGE("flt_tile_importprj %s failed", prj_fname);
 		goto fail_prj;
 	}
 
 	if(flt_tile_importflt(self, flt_fname) == 0)
 	{
-		goto fail_flt;
+		// filenames in source files are inconsistent
+		snprintf(flt_fname, 256, "%s/float%s_1.flt", flt_fbase, flt_fbase);
+		if(flt_tile_importflt(self, flt_fname) == 0)
+		{
+			LOGE("flt_tile_importflt %s failed", flt_fname);
+			goto fail_flt;
+		}
 	}
 
 	// success
