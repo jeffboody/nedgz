@@ -166,10 +166,16 @@ int main(int argc, char** argv)
 
 	int lati;
 	int lonj;
+	int idx   = 0;
+	int count = (latT - latB + 1)*(lonR - lonL + 1);
 	for(lati = latB; lati <= latT; ++lati)
 	{
 		for(lonj = lonL; lonj <= lonR; ++lonj)
 		{
+			// status message
+			++idx;
+			LOGI("%i/%i", idx, count);
+
 			// initialize flt data
 			// only flt_cc must exist
 			if(flt_tl == NULL)
