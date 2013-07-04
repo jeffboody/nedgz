@@ -104,8 +104,8 @@ nedgz_tile_t* nedgz_tile_new(int x, int y, int zoom)
 	               &self->latT, &self->lonL);
 	nedgz_tile2coord((float) x + 1.0f, (float) y + 1.0f, zoom,
 	               &self->latB, &self->lonR);
-	int count = NEDGZ_SUBTILE_COUNT*NEDGZ_SUBTILE_COUNT;
-	int size = count*sizeof(nedgz_subtile_t*);
+	int    count = NEDGZ_SUBTILE_COUNT*NEDGZ_SUBTILE_COUNT;
+	size_t size  = count*sizeof(nedgz_subtile_t*);
 	memset((void*) self->subtile, 0, size);
 
 	return self;
@@ -170,7 +170,7 @@ nedgz_tile_t* nedgz_tile_import(const char* base,
 	}
 
 	if((count < 0) ||
-	   (count >= NEDGZ_SUBTILE_COUNT*NEDGZ_SUBTILE_COUNT))
+	   (count > NEDGZ_SUBTILE_COUNT*NEDGZ_SUBTILE_COUNT))
 	{
 		LOGE("failed count=%i, %s", (int) count, fname);
 		goto fail_count;
