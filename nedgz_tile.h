@@ -66,5 +66,9 @@ void             nedgz_tile_coord(nedgz_tile_t* self,
                                   int i, int j,
                                   int m, int n,
                                   double* lat, double* lon);
+void             nedgz_tile_height(nedgz_tile_t* self,
+                                   int i, int j,
+                                   int m, int n,
+                                   short* height);
 
 #endif

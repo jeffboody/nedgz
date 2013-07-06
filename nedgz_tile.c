@@ -448,3 +448,29 @@ void nedgz_tile_coord(nedgz_tile_t* self,
 	*lat = latT + lats*(latB - latT);
 	*lon = lonL + lons*(lonR - lonL);
 }
+
+void nedgz_tile_height(nedgz_tile_t* self,
+                       int i, int j,
+                       int m, int n,
+                       short* height)
+{
+	assert(self);
+	assert(i >= 0);
+	assert(i < NEDGZ_SUBTILE_COUNT);
+	assert(j >= 0);
+	assert(j < NEDGZ_SUBTILE_COUNT);
+	assert(m >= 0);
+	assert(m < NEDGZ_SUBTILE_SIZE);
+	assert(n >= 0);
+	assert(n < NEDGZ_SUBTILE_SIZE);
+	LOGD("debug i=%i, j=%i, m=%i, n=%i", i, j, m, n);
+
+	nedgz_subtile_t* subtile = nedgz_tile_getij(self, i, j);
+	if(subtile == NULL)
+	{
+		*height = NEDGZ_NODATA;
+		return;
+	}
+
+	*height = subtile->data[m*NEDGZ_SUBTILE_SIZE + n];
+}
