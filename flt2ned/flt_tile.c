@@ -436,15 +436,15 @@ int flt_tile_sample(flt_tile_t* self,
 	assert(height);
 	LOGD("debug lat=%lf, lon=%lf", lat, lon);
 
-	double lonv = (lon - self->lonL) / (self->lonR - self->lonL);
-	double latu = (lat - self->latB) / (self->latT - self->latB);
-	if((lonv >= 0.0) && (lonv <= 1.0) &&
-	   (latu >= 0.0) && (latu <= 1.0))
+	double lonu = (lon - self->lonL) / (self->lonR - self->lonL);
+	double latv = (lat - self->latB) / (self->latT - self->latB);
+	if((lonu >= 0.0) && (lonu <= 1.0) &&
+	   (latv >= 0.0) && (latv <= 1.0))
 	{
 		// TODO - interpolate tile
-		int lat = (int) (latu*self->ncols);
-		int lon = (int) (lonv*self->ncols);
-		*height = self->data[lon*self->ncols + lat];
+		int lon = (int) (lonu*self->ncols);
+		int lat = (int) (latv*self->nrows);
+		*height = self->data[lat*self->ncols + lon];
 		return 1;
 	}
 

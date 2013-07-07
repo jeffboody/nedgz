@@ -439,8 +439,8 @@ void nedgz_tile_coord(nedgz_tile_t* self,
 	double jd    = (double) j;
 	double md    = (double) m;
 	double nd    = (double) n;
-	double lats  = (jd + nd/r)/count;
-	double lons  = (id + md/r)/count;
+	double lats  = (id + md/r)/count;
+	double lons  = (jd + nd/r)/count;
 	double latT  = self->latT;
 	double lonL  = self->lonL;
 	double latB  = self->latB;
