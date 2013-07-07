@@ -172,8 +172,8 @@ static int flt_tile_importhdr(flt_tile_t* self, const char* fname)
 
 	self->latB      = yllcorner;
 	self->lonL      = xllcorner;
-	self->latT      = yllcorner + (double) nrows*cellsize;
-	self->lonR      = xllcorner + (double) ncols*cellsize;
+	self->latT      = yllcorner + (double) ncols*cellsize;
+	self->lonR      = xllcorner + (double) nrows*cellsize;
 	self->nodata    = nodata;
 	self->byteorder = byteorder;
 	self->nrows     = nrows;
@@ -437,7 +437,7 @@ int flt_tile_sample(flt_tile_t* self,
 	LOGD("debug lat=%lf, lon=%lf", lat, lon);
 
 	double lonu = (lon - self->lonL) / (self->lonR - self->lonL);
-	double latv = (lat - self->latB) / (self->latT - self->latB);
+	double latv = 1.0 - ((lat - self->latB) / (self->latT - self->latB));
 	if((lonu >= 0.0) && (lonu <= 1.0) &&
 	   (latv >= 0.0) && (latv <= 1.0))
 	{
