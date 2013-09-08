@@ -1,5 +1,5 @@
 TARGET   = libnedgz.a
-CLASSES  = nedgz_tile nedgz_log nedgz_util
+CLASSES  = nedgz_tile nedgz_log nedgz_util nedgz_scene
 SOURCE   = $(CLASSES:%=%.c)
 OBJECTS  = $(SOURCE:.c=.o)
 HFILES   = $(CLASSES:%=%.h)

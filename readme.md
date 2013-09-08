@@ -7,10 +7,16 @@ to compliment mgm map images.
 Send questions or comments to Jeff Boody - jeffboody@gmail.com
 
 flt2ned
-=============
+=======
 
 A conversion utility that converts flt height maps which can be
 obtained from USGS.
+
+nedsg
+=====
+
+A tool to create a simple scene graph that can be used for culling and
+testing nedgz file existance.
 
 license
 =======
