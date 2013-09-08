@@ -246,6 +246,7 @@ nedgz_scene_t* nedgz_scene_import(const char* fname)
 	// failure
 	fail_importf:
 		nedgz_scene_delete(&self);
+		fclose(f);
 	return NULL;
 }
 
