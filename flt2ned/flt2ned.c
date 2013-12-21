@@ -177,7 +177,6 @@ int main(int argc, char** argv)
 			LOGI("%i/%i", idx, count);
 
 			// initialize flt data
-			// only flt_cc must exist
 			if(flt_tl == NULL)
 			{
 				flt_tl = flt_tile_import(lati + 1, lonj - 1);
@@ -197,10 +196,6 @@ int main(int argc, char** argv)
 			if(flt_cc == NULL)
 			{
 				flt_cc = flt_tile_import(lati, lonj);
-				if(flt_cc == NULL)
-				{
-					goto fail_cc;
-				}
 			}
 			if(flt_cr == NULL)
 			{
@@ -219,47 +214,51 @@ int main(int argc, char** argv)
 				flt_br = flt_tile_import(lati - 1, lonj + 1);
 			}
 
-			// sample tiles whose origin should be in flt_cc
-			float x0f;
-			float y0f;
-			float x1f;
-			float y1f;
-			nedgz_coord2tile(flt_cc->latT,
-			                 flt_cc->lonL,
-			                 zoom,
-			                 &x0f,
-			                 &y0f);
-			nedgz_coord2tile(flt_cc->latB,
-			                 flt_cc->lonR,
-			                 zoom,
-			                 &x1f,
-			                 &y1f);
-
-			// determine range of candidate tiles
-			// tile origin must be in lat/lon region
-			// but may overlap with flt_xx
-			int x0 = (int) (x0f + 1.0f);
-			int y0 = (int) (y0f + 1.0f);
-			int x1 = (int) x1f;
-			int y1 = (int) y1f;
-
-			// check for corner case of tile origin
-			// being on exact edge of flt_cc
-			if((x0f - floor(x0f)) == 0.0f)
+			// flt_cc may be NULL for sparse data
+			if(flt_cc)
 			{
-				x0 = (int) x0f;
-			}
-			if((y0f - floor(y0f)) == 0.0f)
-			{
-				y0 = (int) y0f;
-			}
+				// sample tiles whose origin should be in flt_cc
+				float x0f;
+				float y0f;
+				float x1f;
+				float y1f;
+				nedgz_coord2tile(flt_cc->latT,
+				                 flt_cc->lonL,
+				                 zoom,
+				                 &x0f,
+				                 &y0f);
+				nedgz_coord2tile(flt_cc->latB,
+				                 flt_cc->lonR,
+				                 zoom,
+				                 &x1f,
+				                 &y1f);
 
-			// sample the set of tiles whose origin should cover flt_cc
-			// again, due to overlap with other flt tiles the sampling
-			// actually occurs over the entire flt_xx set
-			if(sample_tile_range(x0, y0, x1, y1, zoom) == 0)
-			{
-				goto fail_sample;
+				// determine range of candidate tiles
+				// tile origin must be in lat/lon region
+				// but may overlap with flt_xx
+				int x0 = (int) (x0f + 1.0f);
+				int y0 = (int) (y0f + 1.0f);
+				int x1 = (int) x1f;
+				int y1 = (int) y1f;
+
+				// check for corner case of tile origin
+				// being on exact edge of flt_cc
+				if((x0f - floor(x0f)) == 0.0f)
+				{
+					x0 = (int) x0f;
+				}
+				if((y0f - floor(y0f)) == 0.0f)
+				{
+					y0 = (int) y0f;
+				}
+
+				// sample the set of tiles whose origin should cover flt_cc
+				// again, due to overlap with other flt tiles the sampling
+				// actually occurs over the entire flt_xx set
+				if(sample_tile_range(x0, y0, x1, y1, zoom) == 0)
+				{
+					goto fail_sample;
+				}
 			}
 
 			// next step, shift right
@@ -294,7 +293,6 @@ int main(int argc, char** argv)
 
 	// failure
 	fail_sample:
-	fail_cc:
 		flt_tile_delete(&flt_tl);
 		flt_tile_delete(&flt_cl);
 		flt_tile_delete(&flt_bl);
