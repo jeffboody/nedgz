@@ -42,7 +42,7 @@ typedef struct
 	float* data;
 } flt_tile_t;
 
-flt_tile_t* flt_tile_import(int lat, int lon);
+flt_tile_t* flt_tile_import(int arcs, int lat, int lon);
 void        flt_tile_delete(flt_tile_t** _self);
 int         flt_tile_sample(flt_tile_t* self,
                             double lat, double lon,

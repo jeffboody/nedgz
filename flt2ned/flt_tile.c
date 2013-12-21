@@ -341,9 +341,9 @@ static int flt_tile_importflt(flt_tile_t* self, const char* fname)
 * public                                                   *
 ***********************************************************/
 
-flt_tile_t* flt_tile_import(int lat, int lon)
+flt_tile_t* flt_tile_import(int arcs, int lat, int lon)
 {
-	LOGD("debug lat=%i, lon=%i", lat, lon);
+	LOGD("debug arcs=%i, lat=%i, lon=%i", arcs, lat, lon);
 
 	char flt_fbase[256];
 	char flt_fname[256];
@@ -353,7 +353,7 @@ flt_tile_t* flt_tile_import(int lat, int lon)
 	snprintf(flt_fbase, 256, "%s%i%s%i",
 	         (lat >= 0) ? "n" : "s", abs(lat),
 	         (lon >= 0) ? "e" : "w", abs(lon));
-	snprintf(flt_fname, 256, "%s/float%s_1", flt_fbase, flt_fbase);
+	snprintf(flt_fname, 256, "%s/float%s_%i", flt_fbase, flt_fbase, arcs);
 	snprintf(hdr_fname, 256, "%s.hdr", flt_fname);
 	snprintf(prj_fname, 256, "%s.prj", flt_fname);
 
@@ -394,7 +394,7 @@ flt_tile_t* flt_tile_import(int lat, int lon)
 	if(flt_tile_importflt(self, flt_fname) == 0)
 	{
 		// filenames in source files are inconsistent
-		snprintf(flt_fname, 256, "%s/float%s_1.flt", flt_fbase, flt_fbase);
+		snprintf(flt_fname, 256, "%s/float%s_%i.flt", flt_fbase, flt_fbase, arcs);
 		if(flt_tile_importflt(self, flt_fname) == 0)
 		{
 			LOGE("flt_tile_importflt %s failed", flt_fname);

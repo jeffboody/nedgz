@@ -152,17 +152,18 @@ static int sample_tile_range(int x0, int y0, int x1, int y1, int zoom)
 
 int main(int argc, char** argv)
 {
-	if(argc != 6)
+	if(argc != 7)
 	{
-		LOGE("usage: %s [zoom] [latT] [lonL] [latB] [lonR]", argv[0]);
+		LOGE("usage: %s [arcs] [zoom] [latT] [lonL] [latB] [lonR]", argv[0]);
 		return EXIT_FAILURE;
 	}
 
-	int zoom = (int) strtol(argv[1], NULL, 0);
-	int latT = (int) strtol(argv[2], NULL, 0);
-	int lonL = (int) strtol(argv[3], NULL, 0);
-	int latB = (int) strtol(argv[4], NULL, 0);
-	int lonR = (int) strtol(argv[5], NULL, 0);
+	int arcs = (int) strtol(argv[1], NULL, 0);
+	int zoom = (int) strtol(argv[2], NULL, 0);
+	int latT = (int) strtol(argv[3], NULL, 0);
+	int lonL = (int) strtol(argv[4], NULL, 0);
+	int latB = (int) strtol(argv[5], NULL, 0);
+	int lonR = (int) strtol(argv[6], NULL, 0);
 
 	int lati;
 	int lonj;
@@ -179,39 +180,39 @@ int main(int argc, char** argv)
 			// initialize flt data
 			if(flt_tl == NULL)
 			{
-				flt_tl = flt_tile_import(lati + 1, lonj - 1);
+				flt_tl = flt_tile_import(arcs, lati + 1, lonj - 1);
 			}
 			if(flt_tc == NULL)
 			{
-				flt_tc = flt_tile_import(lati + 1, lonj);
+				flt_tc = flt_tile_import(arcs, lati + 1, lonj);
 			}
 			if(flt_tr == NULL)
 			{
-				flt_tr = flt_tile_import(lati + 1, lonj + 1);
+				flt_tr = flt_tile_import(arcs, lati + 1, lonj + 1);
 			}
 			if(flt_cl == NULL)
 			{
-				flt_cl = flt_tile_import(lati, lonj - 1);
+				flt_cl = flt_tile_import(arcs, lati, lonj - 1);
 			}
 			if(flt_cc == NULL)
 			{
-				flt_cc = flt_tile_import(lati, lonj);
+				flt_cc = flt_tile_import(arcs, lati, lonj);
 			}
 			if(flt_cr == NULL)
 			{
-				flt_cr = flt_tile_import(lati, lonj + 1);
+				flt_cr = flt_tile_import(arcs, lati, lonj + 1);
 			}
 			if(flt_bl == NULL)
 			{
-				flt_bl = flt_tile_import(lati - 1, lonj - 1);
+				flt_bl = flt_tile_import(arcs, lati - 1, lonj - 1);
 			}
 			if(flt_bc == NULL)
 			{
-				flt_bc = flt_tile_import(lati - 1, lonj);
+				flt_bc = flt_tile_import(arcs, lati - 1, lonj);
 			}
 			if(flt_br == NULL)
 			{
-				flt_br = flt_tile_import(lati - 1, lonj + 1);
+				flt_br = flt_tile_import(arcs, lati - 1, lonj + 1);
 			}
 
 			// flt_cc may be NULL for sparse data
