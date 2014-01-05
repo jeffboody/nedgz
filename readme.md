@@ -18,6 +18,11 @@ nedsg
 A tool to create a simple scene graph that can be used for culling and
 testing nedgz file existance.
 
+getosm
+======
+
+A tool to request all osm tiles that exist in a given nedsg.
+
 license
 =======
 
