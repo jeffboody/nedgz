@@ -35,12 +35,12 @@ static void getosm(nedgz_scene_t* scene, int x, int y, int zoom)
 		int i;
 		int j;
 
-		for(i = 0; i < 8; ++i)
+		for(i = 0; i < NEDGZ_SUBTILE_COUNT; ++i)
 		{
-			for(j = 0; j < 8; ++j)
+			for(j = 0; j < NEDGZ_SUBTILE_COUNT; ++j)
 			{
-				int xj = 8*x + j;
-				int yi = 8*y + i;
+				int xj = NEDGZ_SUBTILE_COUNT*x + j;
+				int yi = NEDGZ_SUBTILE_COUNT*y + i;
 				printf("wget -x http://localhost/osm/%i/%i/%i.png\n",
 				       zoom, xj, yi);
 			}
