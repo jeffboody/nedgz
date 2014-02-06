@@ -39,13 +39,13 @@ typedef struct
 	int    byteorder;
 	int    nrows;
 	int    ncols;
-	float* data;
+	short* height;
 } flt_tile_t;
 
 flt_tile_t* flt_tile_import(int arcs, int lat, int lon);
 void        flt_tile_delete(flt_tile_t** _self);
 int         flt_tile_sample(flt_tile_t* self,
                             double lat, double lon,
-                            float* height);
+                            short* height);
 
 #endif

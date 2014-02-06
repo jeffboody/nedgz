@@ -34,6 +34,11 @@
 * private                                                  *
 ***********************************************************/
 
+static float meters2feet(float m)
+{
+	return m*5280.0f/1609.344f;
+}
+
 static int keyval(char* s, const char** k, const char** v)
 {
 	assert(s);
@@ -283,56 +288,76 @@ static int flt_tile_importflt(flt_tile_t* self, const char* fname)
 		return 0;
 	}
 
-	size_t size = self->nrows*self->ncols*sizeof(float);
-	self->data = (float*) malloc(size);
-	if(self->data == NULL)
+	size_t size = self->nrows*self->ncols*sizeof(short);
+	self->height = (short*) malloc(size);
+	if(self->height == NULL)
 	{
 		LOGE("malloc failed");
-		goto fail_data;
+		goto fail_height;
 	}
 
-	size_t left = size;
-	unsigned char* data = (unsigned char*) self->data;
-	while(left > 0)
+	size_t rsize = self->ncols*sizeof(float);
+	float* rdata = (float*) malloc(rsize);
+	if(rdata == NULL)
 	{
-		size_t bytes = fread(data, sizeof(unsigned char), left, f);
-		if(bytes == 0)
-		{
-			LOGE("fread failed");
-			goto fail_read;
-		}
-		left -= bytes;
-		data += bytes;
+		LOGE("malloc failed");
+		goto fail_rdata;
 	}
 
-	// need to swap byte order for big endian
-	if(self->byteorder == FLT_MSBFIRST)
+	int row;
+	for(row = 0; row < self->nrows; ++row)
 	{
-		data = (unsigned char*) self->data;
-
-		int i;
-		for(i = 0; i < size; i+=4)
+		size_t left = rsize;
+		unsigned char* data = (unsigned char*) rdata;
+		while(left > 0)
 		{
-			unsigned char d0 = data[i + 0];
-			unsigned char d1 = data[i + 1];
-			unsigned char d2 = data[i + 2];
-			unsigned char d3 = data[i + 3];
-			data[i + 0] = d3;
-			data[i + 1] = d2;
-			data[i + 2] = d1;
-			data[i + 3] = d0;
+			size_t bytes = fread(data, sizeof(unsigned char), left, f);
+			if(bytes == 0)
+			{
+				LOGE("fread failed");
+				goto fail_read;
+			}
+			left -= bytes;
+			data += bytes;
+		}
+
+		// need to swap byte order for big endian
+		if(self->byteorder == FLT_MSBFIRST)
+		{
+			data = (unsigned char*) rdata;
+
+			int i;
+			for(i = 0; i < self->ncols; ++i)
+			{
+				unsigned char d0 = data[4*i + 0];
+				unsigned char d1 = data[4*i + 1];
+				unsigned char d2 = data[4*i + 2];
+				unsigned char d3 = data[4*i + 3];
+				data[4*i + 0] = d3;
+				data[4*i + 1] = d2;
+				data[4*i + 2] = d1;
+				data[4*i + 3] = d0;
+
+				// convert data to feet
+				float height = data[4*i];
+				self->height[row*self->ncols + i] = (short) (meters2feet(height) + 0.5f);
+			}
 		}
 	}
 
+	free(rdata);
 	fclose(f);
 
 	return 1;
 
 	// failure
 	fail_read:
-		free(self->data);
-		self->data = NULL;
-	fail_data:
+		free(rdata);
+		rdata = NULL;
+	fail_rdata:
+		free(self->height);
+		self->height = NULL;
+	fail_height:
 		fclose(f);
 	return 0;
 }
@@ -375,7 +400,7 @@ flt_tile_t* flt_tile_import(int arcs, int lat, int lon)
 	self->byteorder = FLT_LSBFIRST;
 	self->nrows     = 0;
 	self->ncols     = 0;
-	self->data      = NULL;
+	self->height    = NULL;
 
 	if(flt_tile_importhdr(self, hdr_fname) == 0)
 	{
@@ -422,7 +447,7 @@ void flt_tile_delete(flt_tile_t** _self)
 	{
 		LOGD("debug");
 
-		free(self->data);
+		free(self->height);
 		free(self);
 		*_self = NULL;
 	}
@@ -430,7 +455,7 @@ void flt_tile_delete(flt_tile_t** _self)
 
 int flt_tile_sample(flt_tile_t* self,
                     double lat, double lon,
-                    float* height)
+                    short* height)
 {
 	assert(self);
 	assert(height);
@@ -444,7 +469,7 @@ int flt_tile_sample(flt_tile_t* self,
 		// TODO - interpolate tile
 		int lon = (int) (lonu*self->ncols);
 		int lat = (int) (latv*self->nrows);
-		*height = self->data[lat*self->ncols + lon];
+		*height = self->height[lat*self->ncols + lon];
 		return 1;
 	}
 
