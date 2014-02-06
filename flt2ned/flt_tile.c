@@ -466,10 +466,36 @@ int flt_tile_sample(flt_tile_t* self,
 	if((lonu >= 0.0) && (lonu <= 1.0) &&
 	   (latv >= 0.0) && (latv <= 1.0))
 	{
-		// TODO - interpolate tile
-		int lon = (int) (lonu*self->ncols);
-		int lat = (int) (latv*self->nrows);
-		*height = self->height[lat*self->ncols + lon];
+		// interpolate between height samples
+		float lon   = (float) (lonu*self->ncols);
+		float lat   = (float) (latv*self->nrows);
+		int   lon0  = (int) (lonu*self->ncols);
+		int   lat0  = (int) (latv*self->nrows);
+		int   lon1  = (int) (lonu*self->ncols) + 1;
+		int   lat1  = (int) (latv*self->nrows) + 1;
+		int   lon0f = (int) lon0;
+		int   lat0f = (int) lat0;
+		int   lon1f = (int) lon1;
+		int   lat1f = (int) lat1;
+		float u     = (lon - lon0f)/(lon1f - lon0f);
+		float v     = (lat - lat0f)/(lat1f - lat0f);
+
+		// top-left
+		// top-right
+		// bottom-left
+		// bottom-right
+		float h00   = (float) self->height[lat0*self->ncols + lon0];
+		float h01   = (float) self->height[lat0*self->ncols + lon1];
+		float h10   = (float) self->height[lat1*self->ncols + lon0];
+		float h11   = (float) self->height[lat1*self->ncols + lon1];
+
+		// top-left    to top-right
+		// bottom-left to bottom-right
+		// top-center  to bottom-center
+		float h0001 = h00 + u*(h01 - h00);
+		float h1011 = h10 + u*(h11 - h10);
+		*height = (short) (h0001 + v*(h1011 - h0001) + 0.5f);
+
 		return 1;
 	}
 
