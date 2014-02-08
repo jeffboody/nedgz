@@ -322,10 +322,9 @@ static int flt_tile_importflt(flt_tile_t* self, const char* fname)
 		}
 
 		// need to swap byte order for big endian
+		data = (unsigned char*) rdata;
 		if(self->byteorder == FLT_MSBFIRST)
 		{
-			data = (unsigned char*) rdata;
-
 			int i;
 			for(i = 0; i < self->ncols; ++i)
 			{
@@ -339,8 +338,18 @@ static int flt_tile_importflt(flt_tile_t* self, const char* fname)
 				data[4*i + 3] = d0;
 
 				// convert data to feet
-				float height = data[4*i];
-				self->height[row*self->ncols + i] = (short) (meters2feet(height) + 0.5f);
+				float* height = (float*) &data[4*i];
+				self->height[row*self->ncols + i] = (short) (meters2feet(*height) + 0.5f);
+			}
+		}
+		else
+		{
+			int i;
+			for(i = 0; i < self->ncols; ++i)
+			{
+				// convert data to feet
+				float* height = (float*) &data[4*i];
+				self->height[row*self->ncols + i] = (short) (meters2feet(*height) + 0.5f);
 			}
 		}
 	}
