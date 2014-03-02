@@ -12,12 +12,11 @@ flt2ned
 A conversion utility that converts flt height maps which can be
 obtained from USGS.
 
-flt2mtex
-========
+flt2pak
+=======
 
 A conversion utility that converts flt height maps which can be
-obtained from USGS. This implementation is a bit of a hack to
-determine if it is feasible to replace nedgz with texgz.
+obtained from USGS.
 
 nedsg
 =====

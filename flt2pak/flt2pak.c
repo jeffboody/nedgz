@@ -32,7 +32,7 @@
 #include "nedgz/nedgz_tile.h"
 #include "nedgz/nedgz_util.h"
 #include "texgz/texgz_tex.h"
-#include "texgz/texgz_mtex.h"
+#include "libpak/pak_file.h"
 
 #define LOG_TAG "flt"
 #include "nedgz/nedgz_log.h"
@@ -53,8 +53,8 @@ static flt_tile_t* flt_br = NULL;
 #define MTEX_SUBTILE_SIZE 256
 
 // TODO - replace nedgz hack
-static void mtex_tile_coord(nedgz_tile_t* self, int i, int j, int m, int n,
-                            double* lat, double* lon)
+static void tile_coord(nedgz_tile_t* self, int i, int j, int m, int n,
+                       double* lat, double* lon)
 {
 	assert(self);
 	assert(i >= 0);
@@ -86,7 +86,7 @@ static void mtex_tile_coord(nedgz_tile_t* self, int i, int j, int m, int n,
 }
 
 static int sample_subtile(nedgz_tile_t* tile, int i, int j,
-                          texgz_mtex_t** _mtex)
+                          pak_file_t* pak)
 {
 	assert(tile);
 	LOGD("debug i=%i, j=%i", i, j);
@@ -111,7 +111,7 @@ static int sample_subtile(nedgz_tile_t* tile, int i, int j,
 		{
 			double lat;
 			double lon;
-			mtex_tile_coord(tile, i, j, m, n, &lat, &lon);
+			tile_coord(tile, i, j, m, n, &lat, &lon);
 
 			// flt_cc most likely place to find sample
 			// At edges of range a subtile may not be
@@ -138,31 +138,14 @@ static int sample_subtile(nedgz_tile_t* tile, int i, int j,
 		}
 	}
 
-	texgz_mtex_t* mtex = *_mtex;
-	if(mtex == NULL)
-	{
-		mtex = texgz_mtex_new(j, i, tex);
-		if(mtex == NULL)
-		{
-			goto fail_mtex;
-		}
-		*_mtex = mtex;
-	}
-	else
-	{
-		if(texgz_mtex_join(mtex, j, i, tex) == 0)
-		{
-			goto fail_mtex;
-		}
-	}
+	// j=dx, i=dy
+	char fname[256];
+	snprintf(fname, 256, "%i_%i", j, i);
+	pak_file_writek(pak, fname);
+	texgz_tex_exportf(tex, pak->f);
+	texgz_tex_delete(&tex);
 
-	// success
 	return 1;
-
-	// failure
-	fail_mtex:
-		texgz_tex_delete(&tex);
-	return 0;
 }
 
 static int sample_tile(int x, int y, int zoom)
@@ -175,37 +158,38 @@ static int sample_tile(int x, int y, int zoom)
 		return 0;
 	}
 
+	char fname[256];
+	snprintf(fname, 256, "ned/%i/%i_%i.pak", zoom, x, y);
+	pak_file_t* pak = pak_file_open(fname, PAK_FLAG_WRITE);
+	if(pak == NULL)
+	{
+		goto fail_pak;
+	}
+
 	// sample subtiles i,j
 	int j;
 	int i;
-	texgz_mtex_t* mtex = NULL;
 	for(i = 0; i < NEDGZ_SUBTILE_COUNT; ++i)
 	{
 		for(j = 0; j < NEDGZ_SUBTILE_COUNT; ++j)
 		{
-			if(sample_subtile(tile, i, j, &mtex) == 0)
+			if(sample_subtile(tile, i, j, pak) == 0)
 			{
 				goto fail_sample;
 			}
 		}
 	}
 
-	char fname[256];
-	snprintf(fname, 256, "ned/%i/%i_%i.mtex", zoom, x, y);
-	if((mtex == NULL) || (texgz_mtex_export(mtex, fname) == 0))
-	{
-		goto fail_export;
-	}
-	texgz_mtex_delete(&mtex);
+	pak_file_close(&pak);
 	nedgz_tile_delete(&tile);
 
 	// success
 	return 1;
 
 	// failure
-	fail_export:
 	fail_sample:
-		texgz_mtex_delete(&mtex);
+		pak_file_close(&pak);
+	fail_pak:
 		nedgz_tile_delete(&tile);
 	return 0;
 }
