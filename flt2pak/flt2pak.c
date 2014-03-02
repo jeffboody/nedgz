@@ -152,6 +152,22 @@ static int sample_tile(int x, int y, int zoom)
 {
 	LOGD("debug x=%i, y=%i, zoom=%i", x, y, zoom);
 
+	// create directories if necessary
+	char dname[256];
+	snprintf(dname, 256, "ned/%i", zoom);
+	if(mkdir(dname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
+	{
+		if(errno == EEXIST)
+		{
+			// already exists
+		}
+		else
+		{
+			LOGE("mkdir %s failed", dname);
+			return 0;
+		}
+	}
+
 	nedgz_tile_t* tile = nedgz_tile_new(x, y, zoom);
 	if(tile == NULL)
 	{
@@ -221,6 +237,22 @@ int main(int argc, char** argv)
 	{
 		LOGE("usage: %s [arcs] [zoom] [latT] [lonL] [latB] [lonR]", argv[0]);
 		return EXIT_FAILURE;
+	}
+
+	// create directories if necessary
+	char dname[256];
+	snprintf(dname, 256, "%s", "ned");
+	if(mkdir(dname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
+	{
+		if(errno == EEXIST)
+		{
+			// already exists
+		}
+		else
+		{
+			LOGE("mkdir %s failed", dname);
+			return EXIT_FAILURE;
+		}
 	}
 
 	int arcs = (int) strtol(argv[1], NULL, 0);
