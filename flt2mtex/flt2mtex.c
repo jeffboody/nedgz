@@ -130,6 +130,11 @@ static int sample_subtile(nedgz_tile_t* tile, int i, int j,
 				short* pixels = (short*) tex->pixels;
 				pixels[m*MTEX_SUBTILE_SIZE + n] = height;
 			}
+			else
+			{
+				short* pixels = (short*) tex->pixels;
+				pixels[m*MTEX_SUBTILE_SIZE + n] = NEDGZ_NODATA;
+			}
 		}
 	}
 
