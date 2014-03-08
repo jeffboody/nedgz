@@ -1,4 +1,4 @@
-TARGET   = flt2pak
+TARGET   = heightmap
 CLASSES  = flt_tile
 SOURCE   = $(TARGET).c $(CLASSES:%=%.c)
 OBJECTS  = $(TARGET).o $(CLASSES:%=%.o)

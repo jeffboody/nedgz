@@ -154,7 +154,7 @@ static int sample_tile(int x, int y, int zoom)
 
 	// create directories if necessary
 	char dname[256];
-	snprintf(dname, 256, "ned/%i", zoom);
+	snprintf(dname, 256, "heightmap/%i", zoom);
 	if(mkdir(dname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
 	{
 		if(errno == EEXIST)
@@ -175,7 +175,7 @@ static int sample_tile(int x, int y, int zoom)
 	}
 
 	char fname[256];
-	snprintf(fname, 256, "ned/%i/%i_%i.pak", zoom, x, y);
+	snprintf(fname, 256, "heightmap/%i/%i_%i.pak", zoom, x, y);
 	pak_file_t* pak = pak_file_open(fname, PAK_FLAG_WRITE);
 	if(pak == NULL)
 	{
@@ -241,7 +241,7 @@ int main(int argc, char** argv)
 
 	// create directories if necessary
 	char dname[256];
-	snprintf(dname, 256, "%s", "ned");
+	snprintf(dname, 256, "%s", "heightmap");
 	if(mkdir(dname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
 	{
 		if(errno == EEXIST)
