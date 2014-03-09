@@ -50,7 +50,7 @@ static flt_tile_t* flt_bl = NULL;
 static flt_tile_t* flt_bc = NULL;
 static flt_tile_t* flt_br = NULL;
 
-#define MTEX_SUBTILE_SIZE 256
+#define SUBTILE_SIZE 256
 
 // TODO - replace nedgz hack
 static void tile_coord(nedgz_tile_t* self, int i, int j, int m, int n,
@@ -62,15 +62,15 @@ static void tile_coord(nedgz_tile_t* self, int i, int j, int m, int n,
 	assert(j >= 0);
 	assert(j < NEDGZ_SUBTILE_COUNT);
 	assert(m >= 0);
-	assert(m < MTEX_SUBTILE_SIZE);
+	assert(m < SUBTILE_SIZE);
 	assert(n >= 0);
-	assert(n < MTEX_SUBTILE_SIZE);
+	assert(n < SUBTILE_SIZE);
 	LOGD("debug i=%i, j=%i, m=%i, n=%i", i, j, m, n);
 
 	// r allows following condition to hold true
 	// (0, 0, 0, 15) == (0, 1, 0, 0)
 	double count = (double) NEDGZ_SUBTILE_COUNT;
-	double r     = (double) (MTEX_SUBTILE_SIZE - 1);
+	double r     = (double) (SUBTILE_SIZE - 1);
 	double id    = (double) i;
 	double jd    = (double) j;
 	double md    = (double) m;
@@ -91,10 +91,10 @@ static int sample_subtile(nedgz_tile_t* tile, int i, int j,
 	assert(tile);
 	LOGD("debug i=%i, j=%i", i, j);
 
-	texgz_tex_t* tex = texgz_tex_new(MTEX_SUBTILE_SIZE,
-	                                 MTEX_SUBTILE_SIZE,
-	                                 MTEX_SUBTILE_SIZE,
-	                                 MTEX_SUBTILE_SIZE,
+	texgz_tex_t* tex = texgz_tex_new(SUBTILE_SIZE,
+	                                 SUBTILE_SIZE,
+	                                 SUBTILE_SIZE,
+	                                 SUBTILE_SIZE,
                                      TEXGZ_SHORT,
 	                                 TEXGZ_LUMINANCE,
                                      NULL);
@@ -105,9 +105,9 @@ static int sample_subtile(nedgz_tile_t* tile, int i, int j,
 
 	int m;
 	int n;
-	for(m = 0; m < MTEX_SUBTILE_SIZE; ++m)
+	for(m = 0; m < SUBTILE_SIZE; ++m)
 	{
-		for(n = 0; n < MTEX_SUBTILE_SIZE; ++n)
+		for(n = 0; n < SUBTILE_SIZE; ++n)
 		{
 			double lat;
 			double lon;
@@ -128,12 +128,12 @@ static int sample_subtile(nedgz_tile_t* tile, int i, int j,
 			   (flt_br && flt_tile_sample(flt_br, lat, lon, &height)))
 			{
 				short* pixels = (short*) tex->pixels;
-				pixels[m*MTEX_SUBTILE_SIZE + n] = height;
+				pixels[m*SUBTILE_SIZE + n] = height;
 			}
 			else
 			{
 				short* pixels = (short*) tex->pixels;
-				pixels[m*MTEX_SUBTILE_SIZE + n] = NEDGZ_NODATA;
+				pixels[m*SUBTILE_SIZE + n] = NEDGZ_NODATA;
 			}
 		}
 	}
