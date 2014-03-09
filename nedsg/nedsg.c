@@ -210,7 +210,7 @@ int main(int argc, char** argv)
 		int x;
 		int y;
 		int zoom;
-		if(sscanf(fname, "./%i/%i_%i.nedgz", &zoom, &x, &y) != 3)
+		if(sscanf(fname, "%i %i %i", &zoom, &x, &y) != 3)
 		{
 			LOGE("invalid fname=%s", fname);
 			continue;
