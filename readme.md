@@ -12,11 +12,17 @@ flt2ned
 A conversion utility that converts flt height maps which can be
 obtained from USGS.
 
-flt2pak
-=======
+heightmap
+=========
 
 A conversion utility that converts flt height maps which can be
 obtained from USGS.
+
+hillshade
+=========
+
+A conversion utility that converts packed heightmaps to packed hillshaded
+textures.
 
 nedsg
 =====
