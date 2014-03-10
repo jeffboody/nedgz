@@ -66,7 +66,7 @@ static int sample_subtile(nedgz_tile_t* tile, int i, int j)
 			// flt_cc most likely place to find sample
 			// At edges of range a subtile may not be
 			// fully covered by flt_xx
-			float height;
+			short height;
 			if((flt_cc && flt_tile_sample(flt_cc, lat, lon, &height)) ||
 			   (flt_tc && flt_tile_sample(flt_tc, lat, lon, &height)) ||
 			   (flt_bc && flt_tile_sample(flt_bc, lat, lon, &height)) ||
@@ -77,8 +77,7 @@ static int sample_subtile(nedgz_tile_t* tile, int i, int j)
 			   (flt_tr && flt_tile_sample(flt_tr, lat, lon, &height)) ||
 			   (flt_br && flt_tile_sample(flt_br, lat, lon, &height)))
 			{
-				short h = (short) (nedgz_meters2feet(height) + 0.5f);
-				if(nedgz_tile_set(tile, i, j, m, n, h) == 0)
+				if(nedgz_tile_set(tile, i, j, m, n, height) == 0)
 				{
 					return 0;
 				}
