@@ -216,22 +216,22 @@ static float get_height(int c, int r)
 	else if(r < 0)
 	{
 		r   += SUBTILE_SIZE;
-		tex  = tex_cl;
+		tex  = tex_tc;
 	}
 	else if(r >= SUBTILE_SIZE)
 	{
 		r   -= SUBTILE_SIZE;
-		tex  = tex_cr;
+		tex  = tex_bc;
 	}
 	else if(c < 0)
 	{
 		c   += SUBTILE_SIZE;
-		tex  = tex_tc;
+		tex  = tex_cl;
 	}
 	else if(c >= SUBTILE_SIZE)
 	{
 		c   -= SUBTILE_SIZE;
-		tex  = tex_bc;
+		tex  = tex_cr;
 	}
 
 	if(tex == NULL)
