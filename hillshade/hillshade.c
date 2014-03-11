@@ -147,22 +147,22 @@ static texgz_tex_t* opentex(int i, int j)
 	else if(i < 0)
 	{
 		i   += NEDGZ_SUBTILE_COUNT;
-		pak  = src_cl;
+		pak  = src_tc;
 	}
 	else if(i >= NEDGZ_SUBTILE_COUNT)
 	{
 		i   -= NEDGZ_SUBTILE_COUNT;
-		pak  = src_cr;
+		pak  = src_bc;
 	}
 	else if(j < 0)
 	{
 		j   += NEDGZ_SUBTILE_COUNT;
-		pak  = src_tc;
+		pak  = src_cl;
 	}
 	else if(j >= NEDGZ_SUBTILE_COUNT)
 	{
 		j   -= NEDGZ_SUBTILE_COUNT;
-		pak  = src_bc;
+		pak  = src_cr;
 	}
 
 	// heightmap may be sparse
