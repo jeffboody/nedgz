@@ -188,49 +188,53 @@ static float get_height(int c, int r)
 {
 	LOGD("debug c=%i, r=%i", c, r);
 
+	// sample the neighboring heighmap but take into
+	// account the 1-pixel shared edge
+	int offset = SUBTILE_SIZE - 1;
+
 	texgz_tex_t* tex = tex_cc;
 	if((r < 0) && (c < 0))
 	{
-		r   += SUBTILE_SIZE;
-		c   += SUBTILE_SIZE;
+		r   += offset;
+		c   += offset;
 		tex  = tex_tl;
 	}
 	else if((r >= SUBTILE_SIZE) && (c < 0))
 	{
-		r   -= SUBTILE_SIZE;
-		c   += SUBTILE_SIZE;
+		r   -= offset;
+		c   += offset;
 		tex  = tex_bl;
 	}
 	else if((r < 0) && (c >= SUBTILE_SIZE))
 	{
-		r   += SUBTILE_SIZE;
-		c   -= SUBTILE_SIZE;
+		r   += offset;
+		c   -= offset;
 		tex  = tex_tr;
 	}
 	else if((r >= SUBTILE_SIZE) && (c >= SUBTILE_SIZE))
 	{
-		r   -= SUBTILE_SIZE;
-		c   -= SUBTILE_SIZE;
+		r   -= offset;
+		c   -= offset;
 		tex  = tex_br;
 	}
 	else if(r < 0)
 	{
-		r   += SUBTILE_SIZE;
+		r   += offset;
 		tex  = tex_tc;
 	}
 	else if(r >= SUBTILE_SIZE)
 	{
-		r   -= SUBTILE_SIZE;
+		r   -= offset;
 		tex  = tex_bc;
 	}
 	else if(c < 0)
 	{
-		c   += SUBTILE_SIZE;
+		c   += offset;
 		tex  = tex_cl;
 	}
 	else if(c >= SUBTILE_SIZE)
 	{
-		c   -= SUBTILE_SIZE;
+		c   -= offset;
 		tex  = tex_cr;
 	}
 
