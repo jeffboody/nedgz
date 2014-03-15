@@ -34,7 +34,7 @@
 #include "texgz/texgz_tex.h"
 #include "libpak/pak_file.h"
 
-#define LOG_TAG "flt"
+#define LOG_TAG "heightmap"
 #include "nedgz/nedgz_log.h"
 
 // flt_cc is centered on the current tile being sampled
