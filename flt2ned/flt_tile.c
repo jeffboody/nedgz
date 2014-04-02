@@ -384,7 +384,7 @@ flt_tile_t* flt_tile_import(int arcs, int lat, int lon)
 	char hdr_fname[256];
 	char prj_fname[256];
 
-	snprintf(flt_fbase, 256, "%s%i%s%i",
+	snprintf(flt_fbase, 256, "%s%i%s%03i",
 	         (lat >= 0) ? "n" : "s", abs(lat),
 	         (lon >= 0) ? "e" : "w", abs(lon));
 	snprintf(flt_fname, 256, "%s/float%s_%i", flt_fbase, flt_fbase, arcs);
