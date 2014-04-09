@@ -27,11 +27,15 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include "net/net_socket.h"
 #include "net/net_socket_wget.h"
 
 #define LOG_TAG "getosm"
 #include "net/net_log.h"
+
+#define SUBTILE_COUNT 8
+#define RETRY_DELAY   100000   // 100ms
 
 int main(int argc, char** argv)
 {
@@ -80,20 +84,13 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	// connect to addr
-	net_socket_t* sock = net_socket_connect("localhost",
-	                                        "80",
-	                                        NET_SOCKET_TCP);
-	if(sock == NULL)
-	{
-		goto fail_socket;
-	}
-
 	// iteratively download osm images
-	char*  line  = NULL;
-	size_t n     = 0;
-	int    index = 0;
-	char*  data  = NULL;
+	char*         line  = NULL;
+	size_t        n     = 0;
+	int           index = 0;
+	char*         data  = NULL;
+	int           size  = 0;
+	net_socket_t* sock  = NULL;
 	while(getline(&line, &n, f) > 0)
 	{
 		int x;
@@ -122,58 +119,89 @@ int main(int argc, char** argv)
 				continue;
 			}
 		}
-		snprintf(dname, 256, "localhost/osm/%i/%i", zoom, x);
-		if(mkdir(dname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
+
+		int i;
+		int j;
+		for(i = 0; i < SUBTILE_COUNT; ++i)
 		{
-			if(errno == EEXIST)
+			int yi = SUBTILE_COUNT*y + i;
+			for(j = 0; j < SUBTILE_COUNT; ++j)
 			{
-				// already exists
+				int xj = SUBTILE_COUNT*x + j;
+				snprintf(dname, 256, "localhost/osm/%i/%i", zoom, xj);
+				if(mkdir(dname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
+				{
+					if(errno == EEXIST)
+					{
+						// already exists
+					}
+					else
+					{
+						LOGE("mkdir %s failed", dname);
+						continue;
+					}
+				}
+
+				// osm server fails sometimes even if tile exists but since
+				// all tiles in US should exist just retry until succcess
+				while(1)
+				{
+					// connect to addr
+					if(sock == NULL)
+					{
+						sock = net_socket_connect("localhost",
+						                          "80",
+						                          NET_SOCKET_TCP);
+						if(sock == NULL)
+						{
+							LOGE("FAILURE zoom=%i, x=%i, y=%i, xj=%i, yi=%i",
+							     zoom, x, y, xj, yi);
+							usleep(RETRY_DELAY);
+							continue;
+						}
+					}
+
+					// wget data
+					// request to keep socket open but server may close
+					// when we have read "too much" data so just retry
+					char request[256];
+					snprintf(request, 256, "/osm/%i/%i/%i.png", zoom, xj, yi);
+					if(net_socket_wget(sock, "getosm/1.0", request, 0,
+					                   &size, (void**) &data) == 0)
+					{
+						LOGE("FAILURE request=%s", request);
+						net_socket_close(&sock);
+						usleep(RETRY_DELAY);
+						continue;
+					}
+					LOGI("SUCCESS request=%s", request);
+					break;
+				}
+
+				// save data
+				char fname[256];
+				snprintf(fname, 256, "localhost/osm/%i/%i/%i.png", zoom, xj, yi);
+				FILE* fdata = fopen(fname, "w");
+				if(fdata == NULL)
+				{
+					LOGE("fopen failed fname=%s", fname);
+					continue;
+				}
+
+				if(fwrite(data, size, 1, fdata) != 1)
+				{
+					LOGE("fwrite failed fname=%s", fname);
+					fclose(fdata);
+					continue;
+				}
+				fclose(fdata);
 			}
-			else
-			{
-				LOGE("mkdir %s failed", dname);
-				continue;
-			}
 		}
-
-		// wget data
-		int   size = 0;
-		char request[256];
-		snprintf(request, 256, "/osm/%i/%i/%i.png", zoom, x, y);
-		if(net_socket_wget(sock, "getosm/1.0", request, 1,
-		                   &size, (void**) &data) == 0)
-		{
-			LOGE("wget failed for zoom=%i, x=%i, y=%i", zoom, x, y);
-			continue;
-		}
-
-		// save data
-		char fname[256];
-		snprintf(fname, 256, "localhost/osm/%i/%i/%i.png", zoom, x, y);
-		FILE* fdata = fopen(fname, "w");
-		if(fdata == NULL)
-		{
-			LOGE("fopen failed for zoom=%i, x=%i, y=%i", zoom, x, y);
-			continue;
-		}
-
-		if(fwrite(data, size, 1, fdata) != 1)
-		{
-			LOGE("fwrite failed for zoom=%i, x=%i, y=%i", zoom, x, y);
-			fclose(fdata);
-			continue;
-		}
-		fclose(fdata);
 	}
+	net_socket_close(&sock);
 	free(line);
 	free(data);
-	net_socket_close(&sock);
+	fclose(f);
 
-	// success
 	return EXIT_SUCCESS;
-
-	// failure
-	fail_socket:
-		fclose(f);
-	return EXIT_FAILURE;
 }
