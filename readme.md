@@ -35,6 +35,16 @@ getosm
 
 A tool to request all osm tiles that exist in a given nedsg.
 
+subheightmap
+============
+
+A tool to subsample a heightmap.
+
+subned
+======
+
+A tool to subsample a nedgz heightmap.
+
 license
 =======
 
