@@ -45,6 +45,13 @@ subned
 
 A tool to subsample a nedgz heightmap.
 
+bluemarble
+==========
+
+A tool to tile NASA blue marble textures.
+
+http://visibleearth.nasa.gov/view_cat.php?categoryID=1484
+
 license
 =======
 
