@@ -45,6 +45,11 @@ subned
 
 A tool to subsample a nedgz heightmap.
 
+subbluemarble
+=============
+
+A tool to subsample NASA blue marble textures.
+
 bluemarble
 ==========
 
