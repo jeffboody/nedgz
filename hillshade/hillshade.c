@@ -60,6 +60,28 @@ static texgz_tex_t* tex_bl = NULL;
 static texgz_tex_t* tex_bc = NULL;
 static texgz_tex_t* tex_br = NULL;
 
+static void subtile2coord(int x, int y, int zoom,
+                          int i, int j, int m, int n,
+                          double* lat, double* lon)
+{
+	assert(lat);
+	assert(lon);
+	LOGD("debug x=%i, y=%i, zoom=%i, i=%i, j=%i, m=%i, n=%i",
+	     x, y, zoom, i, j, m, n);
+
+	float s  = (float) SUBTILE_SIZE;
+	float c  = (float) NEDGZ_SUBTILE_COUNT;
+	float xx = (float) x;
+	float yy = (float) y;
+	float jj = (float) j;
+	float ii = (float) i;
+	float nn = (float) n/(s - 1.0f);
+	float mm = (float) m/(s - 1.0f);
+
+	nedgz_tile2coord(xx + (jj + nn)/c, yy + (ii + mm)/c,
+	                 zoom, lat, lon);
+}
+
 static void tile_coord(int x, int y, int zoom,
                        int i, int j,
                        int m, int n,
@@ -75,27 +97,8 @@ static void tile_coord(int x, int y, int zoom,
 	assert(n < 256);
 	LOGD("debug i=%i, j=%i, m=%i, n=%i", i, j, m, n);
 
-	double latT;
-	double lonL;
-	double latB;
-	double lonR;
-	nedgz_tile2coord((float) x, (float) y, zoom,
-	                 &latT, &lonL);
-	nedgz_tile2coord((float) x + 1.0f, (float) y + 1.0f, zoom,
-	                 &latB, &lonR);
-
-	// r allows following condition to hold true
-	// (0, 0, 0, MAX) == (0, 1, 0, 0)
-	double count = (double) NEDGZ_SUBTILE_COUNT;
-	double r     = (double) (256 - 1);
-	double id    = (double) i;
-	double jd    = (double) j;
-	double md    = (double) m;
-	double nd    = (double) n;
-	double lats  = (id + md/r)/count;
-	double lons  = (jd + nd/r)/count;
-	*lat = latT + lats*(latB - latT);
-	*lon = lonL + lons*(lonR - lonL);
+	subtile2coord(x, y, zoom,
+	              i, j, m, n, lat, lon);
 }
 
 static void world_coord2xy(double lat, double lon,

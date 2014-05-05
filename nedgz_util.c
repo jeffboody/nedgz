@@ -48,6 +48,28 @@ void nedgz_tile2coord(float x, float y, int zoom, double* lat, double* lon)
 	*lon           = rad_lon/(M_PI/180.0);
 }
 
+void nedgz_subtile2coord(int x, int y, int zoom,
+                         int i, int j, int m, int n,
+                         double* lat, double* lon)
+{
+	assert(lat);
+	assert(lon);
+	LOGD("debug x=%i, y=%i, zoom=%i, i=%i, j=%i, m=%i, n=%i",
+	     x, y, zoom, i, j, m, n);
+
+	float s  = (float) NEDGZ_SUBTILE_SIZE;
+	float c  = (float) NEDGZ_SUBTILE_COUNT;
+	float xx = (float) x;
+	float yy = (float) y;
+	float jj = (float) j;
+	float ii = (float) i;
+	float nn = (float) n/(s - 1.0f);
+	float mm = (float) m/(s - 1.0f);
+
+	nedgz_tile2coord(xx + (jj + nn)/c, yy + (ii + mm)/c,
+	                 zoom, lat, lon);
+}
+
 void nedgz_coord2tile(double lat, double lon, int zoom, float* x, float* y)
 {
 	assert(x);

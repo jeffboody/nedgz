@@ -25,6 +25,9 @@
 #define nedgz_util_H
 
 void  nedgz_tile2coord(float x, float y, int zoom, double* lat, double* lon);
+void  nedgz_subtile2coord(int x, int y, int zoom,
+                          int i, int j, int m, int n,
+                          double* lat, double* lon);
 void  nedgz_coord2tile(double lat, double lon, int zoom, float* x, float* y);
 float nedgz_meters2feet(float m);
 float nedgz_feet2meters(float f);

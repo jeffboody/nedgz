@@ -100,10 +100,6 @@ nedgz_tile_t* nedgz_tile_new(int x, int y, int zoom)
 	self->y    = y;
 	self->zoom = zoom;
 
-	nedgz_tile2coord((float) x, (float) y, zoom,
-	               &self->latT, &self->lonL);
-	nedgz_tile2coord((float) x + 1.0f, (float) y + 1.0f, zoom,
-	               &self->latB, &self->lonR);
 	int    count = NEDGZ_SUBTILE_COUNT*NEDGZ_SUBTILE_COUNT;
 	size_t size  = count*sizeof(nedgz_subtile_t*);
 	memset((void*) self->subtile, 0, size);
@@ -431,22 +427,8 @@ void nedgz_tile_coord(nedgz_tile_t* self,
 	assert(n < NEDGZ_SUBTILE_SIZE);
 	LOGD("debug i=%i, j=%i, m=%i, n=%i", i, j, m, n);
 
-	// r allows following condition to hold true
-	// (0, 0, 0, 15) == (0, 1, 0, 0)
-	double count = (double) NEDGZ_SUBTILE_COUNT;
-	double r     = (double) (NEDGZ_SUBTILE_SIZE - 1);
-	double id    = (double) i;
-	double jd    = (double) j;
-	double md    = (double) m;
-	double nd    = (double) n;
-	double lats  = (id + md/r)/count;
-	double lons  = (jd + nd/r)/count;
-	double latT  = self->latT;
-	double lonL  = self->lonL;
-	double latB  = self->latB;
-	double lonR  = self->lonR;
-	*lat = latT + lats*(latB - latT);
-	*lon = lonL + lons*(lonR - lonL);
+	nedgz_subtile2coord(self->x, self->y, self->zoom,
+	                    i, j, m, n, lat, lon);
 }
 
 void nedgz_tile_height(nedgz_tile_t* self,

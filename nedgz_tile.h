@@ -41,10 +41,6 @@ typedef struct
 	int x;
 	int y;
 	int zoom;
-	double latT;
-	double lonL;
-	double latB;
-	double lonR;
 
 	// individual subtiles may be null when not defined
 	nedgz_subtile_t* subtile[NEDGZ_SUBTILE_COUNT*NEDGZ_SUBTILE_COUNT];

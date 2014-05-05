@@ -52,7 +52,28 @@ static flt_tile_t* flt_br = NULL;
 
 #define SUBTILE_SIZE 256
 
-// TODO - replace nedgz hack
+static void subtile2coord(int x, int y, int zoom,
+                          int i, int j, int m, int n,
+                          double* lat, double* lon)
+{
+	assert(lat);
+	assert(lon);
+	LOGD("debug x=%i, y=%i, zoom=%i, i=%i, j=%i, m=%i, n=%i",
+	     x, y, zoom, i, j, m, n);
+
+	float s  = (float) SUBTILE_SIZE;
+	float c  = (float) NEDGZ_SUBTILE_COUNT;
+	float xx = (float) x;
+	float yy = (float) y;
+	float jj = (float) j;
+	float ii = (float) i;
+	float nn = (float) n/(s - 1.0f);
+	float mm = (float) m/(s - 1.0f);
+
+	nedgz_tile2coord(xx + (jj + nn)/c, yy + (ii + mm)/c,
+	                 zoom, lat, lon);
+}
+
 static void tile_coord(nedgz_tile_t* self, int i, int j, int m, int n,
                        double* lat, double* lon)
 {
@@ -67,22 +88,8 @@ static void tile_coord(nedgz_tile_t* self, int i, int j, int m, int n,
 	assert(n < SUBTILE_SIZE);
 	LOGD("debug i=%i, j=%i, m=%i, n=%i", i, j, m, n);
 
-	// r allows following condition to hold true
-	// (0, 0, 0, 15) == (0, 1, 0, 0)
-	double count = (double) NEDGZ_SUBTILE_COUNT;
-	double r     = (double) (SUBTILE_SIZE - 1);
-	double id    = (double) i;
-	double jd    = (double) j;
-	double md    = (double) m;
-	double nd    = (double) n;
-	double lats  = (id + md/r)/count;
-	double lons  = (jd + nd/r)/count;
-	double latT  = self->latT;
-	double lonL  = self->lonL;
-	double latB  = self->latB;
-	double lonR  = self->lonR;
-	*lat = latT + lats*(latB - latT);
-	*lon = lonL + lons*(lonR - lonL);
+	subtile2coord(self->x, self->y, self->zoom,
+	              i, j, m, n, lat, lon);
 }
 
 static int sample_subtile(nedgz_tile_t* tile, int i, int j,
