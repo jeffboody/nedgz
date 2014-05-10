@@ -35,6 +35,7 @@
 #define LOG_TAG "hillshade"
 #include "texgz/texgz_log.h"
 
+#define GOTO_USE_3X3
 #define SUBTILE_SIZE 256
 
 // hillshading
