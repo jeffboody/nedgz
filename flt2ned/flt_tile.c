@@ -405,7 +405,7 @@ flt_tile_t* flt_tile_import(int arcs, int lat, int lon)
 	self->latB      = 0.0;
 	self->lonR      = 0.0;
 	self->latT      = 0.0;
-	self->nodata    = -9999.0;
+	self->nodata    = 0.0;
 	self->byteorder = FLT_LSBFIRST;
 	self->nrows     = 0;
 	self->ncols     = 0;
@@ -514,6 +514,24 @@ int flt_tile_sample(flt_tile_t* self,
 		float h01   = (float) self->height[lat0*self->ncols + lon1];
 		float h10   = (float) self->height[lat1*self->ncols + lon0];
 		float h11   = (float) self->height[lat1*self->ncols + lon1];
+
+		// workaround for incorrect source data around coastlines
+		if((h00 > 32000) || (h00 == self->nodata))
+		{
+			h00 = 0.0;
+		}
+		if((h01 > 32000) || (h01 == self->nodata))
+		{
+			h01 = 0.0;
+		}
+		if((h10 > 32000) || (h10 == self->nodata))
+		{
+			h10 = 0.0;
+		}
+		if((h11 > 32000) || (h11 == self->nodata))
+		{
+			h11 = 0.0;
+		}
 
 		// interpolate longitude
 		float h0001 = h00 + u*(h01 - h00);

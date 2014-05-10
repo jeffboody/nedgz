@@ -26,7 +26,7 @@
 
 #define NEDGZ_SUBTILE_COUNT 8
 #define NEDGZ_SUBTILE_SIZE  32
-#define NEDGZ_NODATA        -9999
+#define NEDGZ_NODATA        0
 
 // data units are measured in feet because the highest
 // point, Mt Everest is 29029 feet,  which matches up
