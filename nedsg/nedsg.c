@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #include "nedgz/nedgz_scene.h"
 #include "nedgz/nedgz_tile.h"
 #include "nedgz/nedgz_util.h"
@@ -184,42 +185,72 @@ int main(int argc, char** argv)
 	// 1. to create the list
 	//     cd ned
 	//     find . -name "*.nedgz" > ned.list
-	// 2. to create scene graph
+	// 2. trim list elements to "x y zoom"
+	// 3. to create scene graph for ned
 	//     cd ned
-	//     <path>/nedsg ned.list
-	if(argc != 2)
+	//     <path>/nedsg -ned ned.list ned.sg
+	// 4. to create scene graph for osm/blue/etc.
+	//     cd osm
+	//     <path>/nedsg osm.list osm.sg
+	if((argc < 3) || (argc > 4))
 	{
-		LOGE("usage: %s [ned.list]", argv[0]);
+		LOGE("usage: %s [-ned] in.list out.sg", argv[0]);
+		LOGE("-ned: import nedgz file for min/max height");
 		return EXIT_FAILURE;
 	}
 
+	int   usened = 0;
+	char* lname  = argv[1];
+	char* sname  = argv[2];
+	if(argc == 4)
+	{
+		usened = 1;
+		lname  = argv[2];
+		sname  = argv[3];
+
+		if(strcmp(argv[1], "-ned") != 0)
+		{
+			LOGE("usage: %s [-ned] in.list out.sg", argv[0]);
+			return EXIT_FAILURE;
+		}
+	}
+
 	// open the list
-	FILE* f = fopen(argv[1], "r");
+	FILE* f = fopen(lname, "r");
 	if(f == NULL)
 	{
-		LOGE("failed to open %s", argv[1]);
+		LOGE("failed to open %s", lname);
 		return EXIT_FAILURE;
 	}
 
 	// iteratively add nodes to the scene graph
-	char* fname         = NULL;
-	size_t n            = 0;
+	char*          line  = NULL;
+	size_t         n     = 0;
 	nedgz_scene_t* scene = NULL;
-	while(getline(&fname, &n, f) > 0)
+	while(getline(&line, &n, f) > 0)
 	{
 		int x;
 		int y;
 		int zoom;
-		if(sscanf(fname, "%i %i %i", &zoom, &x, &y) != 3)
+		if(sscanf(line, "%i %i %i", &zoom, &x, &y) != 3)
 		{
-			LOGE("invalid fname=%s", fname);
+			LOGE("invalid line=%s", line);
 			continue;
 		}
 
-		nedgz_tile_t* ned = nedgz_tile_import(".", x, y, zoom);
+		nedgz_tile_t* ned;
+		if(usened)
+		{
+			ned = nedgz_tile_import(".", x, y, zoom);
+		}
+		else
+		{
+			ned = nedgz_tile_new(x, y, zoom);
+		}
+
 		if(ned == NULL)
 		{
-			LOGE("invalid fname=%s", fname);
+			LOGE("invalid line=%s", line);
 			continue;
 		}
 
@@ -227,14 +258,14 @@ int main(int argc, char** argv)
 
 		nedgz_tile_delete(&ned);
 	}
-	free(fname);
+	free(line);
 
 	// fix min/max heights across LOD
 	short min = NEDGZ_NODATA;
 	short max = NEDGZ_NODATA;
 	nedgz_scene_fixheight(scene, &min, &max);
 
-	nedgz_scene_export(scene, "ned.sg");
+	nedgz_scene_export(scene, sname);
 	nedgz_scene_delete(&scene);
 
 	return EXIT_SUCCESS;
