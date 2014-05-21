@@ -384,10 +384,10 @@ static void sample_tile_range(int month, int x0, int y0, int x1, int y1, int zoo
 	int x;
 	int y;
 	int idx   = 1;
-	int count = (x1 - x0 + 1)*(y1 - y0 + 1);
-	for(y = y0; y <= y1; ++y)
+	int count = (x1 - x0)*(y1 - y0);
+	for(y = y0; y < y1; ++y)
 	{
-		for(x = x0; x <= x1; ++x)
+		for(x = x0; x < x1; ++x)
 		{
 			LOGI("%i: %i/%i: x=%i, y=%i", month, idx++, count, x, y);
 
@@ -398,39 +398,18 @@ static void sample_tile_range(int month, int x0, int y0, int x1, int y1, int zoo
 
 int main(int argc, char** argv)
 {
-	if(argc != 6)
+	if(argc != 2)
 	{
-		LOGE("usage: %s [zoom] [latT] [lonL] [latB] [lonR]", argv[0]);
+		LOGE("usage: %s [zoom]", argv[0]);
 		return EXIT_FAILURE;
 	}
 
-	int zoom = (int) strtol(argv[1], NULL, 0);
-	int latT = (int) strtol(argv[2], NULL, 0);
-	int lonL = (int) strtol(argv[3], NULL, 0);
-	int latB = (int) strtol(argv[4], NULL, 0) - 1;
-	int lonR = (int) strtol(argv[5], NULL, 0) + 1;
-
-	// determine tile range
-	float x0f;
-	float y0f;
-	float x1f;
-	float y1f;
-	nedgz_coord2tile(latT,
-	                 lonL,
-	                 zoom,
-	                 &x0f,
-	                 &y0f);
-	nedgz_coord2tile(latB,
-	                 lonR,
-	                 zoom,
-	                 &x1f,
-	                 &y1f);
-
 	// determine range of candidate tiles
-	int x0 = (int) x0f;
-	int y0 = (int) y0f;
-	int x1 = (int) (x1f + 1.0f);
-	int y1 = (int) (y1f + 1.0f);
+	int zoom = (int) strtol(argv[1], NULL, 0);
+	int x0   = 0;
+	int y0   = 0;
+	int x1   = (int) powl(2, zoom)/NEDGZ_SUBTILE_COUNT;
+	int y1   = (int) powl(2, zoom)/NEDGZ_SUBTILE_COUNT;
 
 	// sample the set of tiles whose origin should cover range
 	// again, due to overlap with other flt tiles the sampling
