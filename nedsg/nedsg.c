@@ -226,6 +226,7 @@ int main(int argc, char** argv)
 	// iteratively add nodes to the scene graph
 	char*          line  = NULL;
 	size_t         n     = 0;
+	int            index = 0;
 	nedgz_scene_t* scene = NULL;
 	while(getline(&line, &n, f) > 0)
 	{
@@ -237,6 +238,8 @@ int main(int argc, char** argv)
 			LOGE("invalid line=%s", line);
 			continue;
 		}
+
+		LOGI("%i: %i %i %i", ++index, zoom, x, y);
 
 		nedgz_tile_t* ned;
 		if(usened)
