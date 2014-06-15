@@ -38,6 +38,7 @@
 ***********************************************************/
 
 static nedgz_scene_t* make_scene(nedgz_scene_t** _node,
+                                 int fsize,
                                  int x,  int y,  int zoom,
                                  nedgz_tile_t* ned)
 {
@@ -101,6 +102,7 @@ static nedgz_scene_t* make_scene(nedgz_scene_t** _node,
 		}
 
 		node->exists = 1;
+		node->fsize  = fsize;
 
 		return node;
 	}
@@ -138,7 +140,7 @@ static nedgz_scene_t* make_scene(nedgz_scene_t** _node,
 		return NULL;
 	}
 
-	return make_scene(next, x, y, zoom, ned);
+	return make_scene(next, fsize, x, y, zoom, ned);
 }
 
 static void nedgz_scene_fixheight(nedgz_scene_t* self, short* min, short* max)
@@ -241,14 +243,17 @@ int main(int argc, char** argv)
 
 		LOGI("%i: %i %i %i", ++index, zoom, x, y);
 
+		char          fname[256];
 		nedgz_tile_t* ned;
 		if(usened)
 		{
 			ned = nedgz_tile_import(".", x, y, zoom);
+			snprintf(fname, 256, "%i/%i_%i.nedgz", zoom, x, y);
 		}
 		else
 		{
 			ned = nedgz_tile_new(x, y, zoom);
+			snprintf(fname, 256, "%i/%i_%i.pak", zoom, x, y);
 		}
 
 		if(ned == NULL)
@@ -257,8 +262,21 @@ int main(int argc, char** argv)
 			continue;
 		}
 
-		make_scene(&scene, 0, 0, 0, ned);
+		int   fsize = 0;
+		FILE* f     = fopen(fname, "r");
+		if(f)
+		{
+			fseek(f, 0, SEEK_END);
+			fsize = (int) ftell(f);
+			if(fsize < 0)
+			{
+				LOGE("failed line=%s", line);
+				fsize = 0;
+			}
+			fclose(f);
+		}
 
+		make_scene(&scene, fsize, 0, 0, 0, ned);
 		nedgz_tile_delete(&ned);
 	}
 	free(line);

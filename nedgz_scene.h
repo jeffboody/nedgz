@@ -33,8 +33,9 @@ typedef struct nedgz_scene_s
 	struct nedgz_scene_s* bl;
 	struct nedgz_scene_s* br;
 
-	// nedgz file exists
+	// file properties
 	int exists;
+	int fsize;
 
 	// bounding box
 	short min;

@@ -71,6 +71,12 @@ static int nedgz_scene_exportf(nedgz_scene_t* self, FILE* f)
 		return 0;
 	}
 
+	if(fwrite((const void*) &self->fsize, sizeof(int), 1, f) != 1)
+	{
+		LOGE("fwrite failed");
+		return 0;
+	}
+
 	if(self->tl)
 	{
 		if(nedgz_scene_exportf(self->tl, f) == 0)
@@ -139,6 +145,11 @@ static int nedgz_scene_importf(nedgz_scene_t** _self, FILE* f)
 		return 0;
 	}
 
+	if(fread((void*) &self->fsize, sizeof(int), 1, f) != 1)
+	{
+		return 0;
+	}
+
 	self->exists = (mask & NEDGZ_SCENE_EXISTS) ? 1 : 0;
 
 	if(mask & NEDGZ_SCENE_TL)
@@ -196,6 +207,7 @@ nedgz_scene_t* nedgz_scene_new(void)
 	self->bl     = NULL;
 	self->br     = NULL;
 	self->exists = 0;
+	self->fsize  = 0;
 	self->min    = NEDGZ_NODATA;
 	self->max    = NEDGZ_NODATA;
 
