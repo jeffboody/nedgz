@@ -5,7 +5,7 @@ OBJECTS  = $(TARGET).o $(CLASSES:%=%.o)
 HFILES   = $(CLASSES:%=%.h)
 OPT      = -O2 -Wall
 CFLAGS   = $(OPT) -I.
-LDFLAGS  =
+LDFLAGS  = -lpthread
 CCC      = gcc
 
 all: $(TARGET)
