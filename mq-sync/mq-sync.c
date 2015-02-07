@@ -67,7 +67,7 @@ static void mq_state_quit(int signo)
 	}
 
 	pthread_mutex_lock(&gstate->mutex);
-	LOGI("QUIT");
+	LOGI("[ QUIT]");
 	gstate->quit = 1;
 	pthread_mutex_unlock(&gstate->mutex);
 }
@@ -80,7 +80,7 @@ static int mq_state_isQuit(int id)
 	int quit = gstate->quit;
 	if(quit)
 	{
-		LOGI("id=%i: QUIT", id);
+		LOGI("[ QUIT] id=%02i", id);
 	}
 	pthread_mutex_unlock(&gstate->mutex);
 	return quit;
@@ -97,7 +97,7 @@ static int mq_state_next(int id, int* x, int* y)
 	// quit thread
 	if(gstate->quit)
 	{
-		LOGI("id=%i: QUIT", id);
+		LOGI("[ QUIT] id=%02i", id);
 		pthread_mutex_unlock(&gstate->mutex);
 		return 0;
 	}
@@ -135,10 +135,10 @@ static int mq_sync(int id, int xx, int yy)
 
 	// skip files if they already exist
 	char fname[256];
-	snprintf(fname, 256, "mq/%i/%i/%i.jpg", gstate->zoom, xx, yy); 
+	snprintf(fname, 256, "mq/%i/%i/%i.jpg", gstate->zoom, xx, yy);
 	if(access(fname, R_OK) == 0)
 	{
-		LOGI("id=%i: %i/%i, %s (SKIP)",
+		LOGI("[ SKIP] id=%02i: %i/%i, %s",
 		     id, gstate->idx, gstate->cnt, fname);
 		return 1;
 	}
@@ -249,7 +249,7 @@ static int mq_sync(int id, int xx, int yy)
 	free(data);
 	net_socket_close(&s);
 
-	LOGI("id=%i: %i/%i, %s", id,
+	LOGI("[ SYNC] id=%02i: %i/%i, %s", id,
 	     gstate->idx, gstate->cnt, fname);
 
 	// success
@@ -294,6 +294,10 @@ static void* mq_thread(void* arg)
 					}
 
 					// try again
+					char fname[256];
+					snprintf(fname, 256, "mq/%i/%i/%i.jpg", gstate->zoom, xx, yy);
+					LOGI("[RETRY] id=%02i: %i/%i, %s", id,
+					     gstate->idx, gstate->cnt, fname);
 					usleep(100000);
 				}
 
