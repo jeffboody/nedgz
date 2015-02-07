@@ -269,12 +269,12 @@ static int mq_sync(int id, int xx, int yy)
 
 static void* mq_thread(void* arg)
 {
-	// arg is thread id
+	assert(arg);
 	LOGD("debug");
 
 	int x;
 	int y;
-	int id = (int) arg;
+	int id = *((int*) arg);
 	while(mq_state_next(id, &x, &y))
 	{
 		int i;
@@ -363,12 +363,19 @@ int main(int argc, char** argv)
 		goto fail_mutex;
 	}
 
-	// start threads
+	// init thread ids
 	int i;
+	int ids[MQ_STATE_THREADS];
+	for(i = 0; i < MQ_STATE_THREADS; ++i)
+	{
+		ids[i] = i;
+	}
+
+	// start threads
 	pthread_mutex_lock(&gstate->mutex);
 	for(i = 0; i < MQ_STATE_THREADS; ++i)
 	{
-		if(pthread_create(&gstate->thread[i], NULL, mq_thread, (void*) i) != 0)
+		if(pthread_create(&gstate->thread[i], NULL, mq_thread, (void*) &ids[i]) != 0)
 		{
 			LOGE("pthread_create failed");
 			goto fail_thread;
