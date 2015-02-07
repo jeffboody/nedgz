@@ -38,7 +38,7 @@
 #define LOG_TAG "mq-sync"
 #include "nedgz/nedgz_log.h"
 
-#define MQ_STATE_THREADS 4
+#define MQ_STATE_THREADS 16
 typedef struct
 {
 	int             idx;
