@@ -34,11 +34,13 @@
 #define LOG_TAG "cloud-sync"
 #include "nedgz/nedgz_log.h"
 
-#define CLOUD_THREADS 16
+#define CLOUD_THREADS 32
 typedef struct
 {
 	FILE*           fsync;
 	FILE*           frestart;
+	int             synced;
+	int             count;
 	int             quit;
 	pthread_mutex_t mutex;
 	pthread_t       thread[CLOUD_THREADS];
@@ -123,7 +125,7 @@ static int cloud_sync(int id, const char* line)
 {
 	assert(line);
 
-	LOGI("[ SYNC] id=%02i: %s", id, line);
+	LOGI("[START] id=%02i: %s", id, line);
 
 	char cmd[256];
 	snprintf(cmd, 256,
@@ -133,6 +135,14 @@ static int cloud_sync(int id, const char* line)
 	{
 		return 0;
 	}
+
+	pthread_mutex_lock(&gstate->mutex);
+	++gstate->synced;
+	LOGI("[ SYNC] id=%02i: %i %i %f %s",
+	     id, gstate->synced, gstate->count,
+	     100.0f*((float) gstate->synced)/((float) gstate->count),
+	     line);
+	pthread_mutex_unlock(&gstate->mutex);
 
 	return 1;
 }
@@ -195,6 +205,19 @@ int main(int argc, char** argv)
 		goto fail_fsync;
 	}
 
+	char*  line = NULL;
+	size_t n    = 0;
+	gstate->count  = 0;
+	gstate->synced = 0;
+	while(getline(&line, &n, gstate->fsync) > 0)
+	{
+		++gstate->count;
+	}
+	rewind(gstate->fsync);
+	free(line);
+	line = NULL;
+	n    = 0;
+
 	gstate->frestart = fopen(fname_restart, "w");
 	if(gstate->frestart == NULL)
 	{
@@ -246,19 +269,19 @@ int main(int argc, char** argv)
 	}
 
 	// write any files that need to be restarted
-	char*  line = NULL;
-	size_t n    = 0;
 	while(getline(&line, &n, gstate->fsync) > 0)
 	{
 		fprintf(gstate->frestart, "%s", line);
 	}
-
-	// cleanup
 	free(line);
-	signal(SIGINT, SIG_DFL);
-	pthread_mutex_destroy(&gstate->mutex);
 	fclose(gstate->frestart);
 	fclose(gstate->fsync);
+
+	LOGI("[ DONE]");
+
+	// cleanup
+	signal(SIGINT, SIG_DFL);
+	pthread_mutex_destroy(&gstate->mutex);
 	free(gstate);
 	gstate = NULL;
 
