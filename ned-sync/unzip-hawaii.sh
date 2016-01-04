@@ -1,0 +1,15 @@
+# hawaii
+unzip zip/n23w160.zip
+unzip zip/n23w161.zip
+unzip zip/n22w157.zip
+unzip zip/n22w158.zip
+unzip zip/n22w159.zip
+unzip zip/n22w160.zip
+unzip zip/n22w161.zip
+unzip zip/n21w156.zip
+unzip zip/n21w157.zip
+unzip zip/n21w158.zip
+unzip zip/n20w155.zip
+unzip zip/n20w156.zip
+unzip zip/n20w157.zip
+unzip zip/n19w156.zip
