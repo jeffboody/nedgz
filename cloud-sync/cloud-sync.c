@@ -127,10 +127,14 @@ static int cloud_sync(int id, const char* line)
 
 	LOGI("[START] id=%02i: %s", id, line);
 
+	// gsutil occasionally hangs
+	char timeout[256];
+	snprintf(timeout, 256, "%s", "timeout -s KILL 60");
+
 	char cmd[256];
 	snprintf(cmd, 256,
-	         "gsutil cp -a public-read %s gs://goto/%s",
-	         line, line);
+	         "%s gsutil cp -a public-read %s gs://goto/%s",
+	         timeout, line, line);
 	if(system(cmd) != 0)
 	{
 		return 0;
