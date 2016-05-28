@@ -57,6 +57,13 @@ A tool to tile NASA blue marble textures.
 
 http://visibleearth.nasa.gov/view_cat.php?categoryID=1484
 
+naip-merge
+==========
+
+A tool to merge csv lists for NAIP 1m images available from USGS.
+
+http://viewer.nationalmap.gov/basic/
+
 license
 =======
 
