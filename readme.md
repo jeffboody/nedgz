@@ -64,6 +64,11 @@ A tool to merge csv lists for NAIP 1m images available from USGS.
 
 http://viewer.nationalmap.gov/basic/
 
+naip-sync
+==========
+
+A tool to sync NAIP 1m images from USGS.
+
 license
 =======
 
