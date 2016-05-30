@@ -38,6 +38,7 @@
 
 // global state
 int             gcancel = 0;
+int             gcount  = 0;
 a3d_list_t*     glist   = NULL;
 a3d_listitem_t* giter   = NULL;
 pthread_t       gthread[NAIP_THREAD_COUNT];
@@ -230,7 +231,7 @@ static int naip_readXml(const char* fname)
 	return 0;
 }
 
-static int naip_nextNode(naip_node_t** _node)
+static int naip_nextNode(naip_node_t** _node, int* _count)
 {
 	assert(_node);
 
@@ -244,6 +245,9 @@ static int naip_nextNode(naip_node_t** _node)
 
 	*_node = (naip_node_t*) a3d_list_peekitem(giter);
 	giter  = a3d_list_next(giter);
+	++gcount;
+	*_count = gcount;
+
 	pthread_mutex_unlock(&gmutex);
 	return 1;
 }
@@ -265,13 +269,15 @@ static void* naip_thread(void* arg)
 {
 	int id = *((int*) arg);
 
-	naip_node_t* node;
-	while(naip_nextNode(&node))
+	int count = 0;
+	naip_node_t* node = NULL;
+	while(naip_nextNode(&node, &count))
 	{
 		// check if file already exists
 		if(access(node->fname, F_OK) == 0)
 		{
-			LOGI("[SKIP] id=%i, url=%s", id, node->url);
+			LOGI("[SKIP] id=%i, count=%i, fname=%s",
+			     id, count, node->fname);
 			continue;
 		}
 
@@ -283,11 +289,14 @@ static void* naip_thread(void* arg)
 		snprintf(pname, 256, "%s.part", node->fname);
 		pname[255] = '\0';
 
-		LOGI("[SYNC] id=%i, url=%s", id, node->url);
+		LOGI("[SYNC] id=%i, count=%i, fname=%s",
+		     id, count, node->fname);
+
 		while((system(cmd)                != 0) ||
 		      (rename(pname, node->fname) != 0))
 		{
-			LOGI("[FAIL] id=%i, url=%s", id, node->url);
+			LOGI("[FAIL] id=%i, count=%i, fname=%s",
+			     id, count, node->fname);
 
 			// remove part file
 			if(access(pname, F_OK) == 0)
@@ -304,7 +313,8 @@ static void* naip_thread(void* arg)
 			pthread_mutex_unlock(&gmutex);
 
 			usleep(1000000);
-			LOGI("[SYNC] id=%i, url=%s", id, node->url);
+			LOGI("[SYNC] id=%i, count=%i, fname=%s",
+			     id, count, node->fname);
 		}
 	}
 
@@ -314,6 +324,9 @@ static void* naip_thread(void* arg)
 
 int main(int argc, const char** argv)
 {
+	// To track progress:
+	// naip-sync naip.xml | tee log.txt
+	// tail -f log.txt
 	if(argc != 2)
 	{
 		LOGE("usage: %s <naip.xml>", argv[0]);
