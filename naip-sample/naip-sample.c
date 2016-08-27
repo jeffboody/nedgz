@@ -522,7 +522,7 @@ static texgz_tex_t* naip_sampleNode(int zoom, int x, int y)
 {
 	// restart the saved node if it exists
 	char sname[256];
-	if(zoom == 12)
+	if((zoom == 12) || (zoom == 3))
 	{
 		snprintf(sname, 256, "naipsave/%i/%i/%i.texz", zoom, x, y);
 		sname[255] = '\0';
@@ -653,7 +653,7 @@ static texgz_tex_t* naip_sampleNode(int zoom, int x, int y)
 	}
 
 	// save the output for restart
-	if(zoom == 12)
+	if((zoom == 12) || (zoom == 3))
 	{
 		char pname[256];
 		snprintf(pname, 256, "naipsave/%i/%i/%i.texz.part", zoom, x, y);
