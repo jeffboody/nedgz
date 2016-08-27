@@ -424,6 +424,12 @@ static int naip_readXml(const char* fname)
 	return 0;
 }
 
+static float stochastic(void)
+{
+	// compute a random number [-1.0f to 1.0f]
+	return 0.01*((float) ((rand() % 201) - 100));
+}
+
 static void naip_sampleEnd(texgz_tex_t* tex,
                            int zoom, int x, int y)
 {
@@ -438,18 +444,16 @@ static void naip_sampleEnd(texgz_tex_t* tex,
 	float  xf  = (float) x;
 	float  yf  = (float) y;
 	int    bpp = texgz_tex_bpp(tex);
-	unsigned char pixel[4];
+	unsigned char pixel00[4];
+	unsigned char pixel01[4];
+	unsigned char pixel10[4];
+	unsigned char pixel11[4];
+	float         pixelf[4];
 	for(i = 0; i < tex->height; ++i)
 	{
 		int offset = bpp*i*tex->stride;
 		for(j = 0; j < tex->width; ++j)
 		{
-			// adjust pixel center
-			// float ii = (float) i;
-			// float jj = (float) j;
-			// float xx = xf + (jj + 0.5f)/256.0f;
-			// float yy = yf + (ii + 0.5f)/256.0f;
-
 			// compute pixel center
 			float ii = (float) i;
 			float jj = (float) j;
@@ -466,21 +470,49 @@ static void naip_sampleEnd(texgz_tex_t* tex,
 				continue;
 			}
 
-			// sample the pixel
+			// stochastic/random sampling pattern
+			float w    = (float) node->tex->width;
+			float h    = (float) node->tex->height;
+			float ssu0 = (0.5f + 0.25*stochastic())/w;
+			float ssu1 = (0.5f + 0.25*stochastic())/w;
+			float ssu2 = (0.5f + 0.25*stochastic())/w;
+			float ssu3 = (0.5f + 0.25*stochastic())/w;
+			float ssv0 = (0.5f + 0.25*stochastic())/h;
+			float ssv1 = (0.5f + 0.25*stochastic())/h;
+			float ssv2 = (0.5f + 0.25*stochastic())/h;
+			float ssv3 = (0.5f + 0.25*stochastic())/h;
+
+			// sample the pixel (MSAA)
 			double u0 = fabs(lon - node->l);
 			double v0 = fabs(lat - node->t);
 			double du = fabs(node->l - node->r);
 			double dv = fabs(node->t - node->b);
 			float  u  = (float) (u0/du);
 			float  v  = (float) (v0/dv);
-			texgz_tex_sample(node->tex, u, v,
-			                 bpp, pixel);
+			texgz_tex_sample(node->tex, u - ssu0, v - ssv0,
+			                 bpp, pixel00);
+			texgz_tex_sample(node->tex, u + ssu1, v - ssv1,
+			                 bpp, pixel01);
+			texgz_tex_sample(node->tex, u - ssu2, v + ssv2,
+			                 bpp, pixel10);
+			texgz_tex_sample(node->tex, u + ssu3, v + ssv3,
+			                 bpp, pixel11);
+
+			// compute pixel average
+			pixelf[0] = ((float) pixel00[0] + (float) pixel01[0] +
+			             (float) pixel10[0] + (float) pixel11[0])/4.0f;
+			pixelf[1] = ((float) pixel00[1] + (float) pixel01[1] +
+			             (float) pixel10[1] + (float) pixel11[1])/4.0f;
+			pixelf[2] = ((float) pixel00[2] + (float) pixel01[2] +
+			             (float) pixel10[2] + (float) pixel11[2])/4.0f;
+			pixelf[3] = ((float) pixel00[3] + (float) pixel01[3] +
+			             (float) pixel10[3] + (float) pixel11[3])/4.0f;
 
 			// set the pixel
-			tex->pixels[offset + 0] = pixel[0];
-			tex->pixels[offset + 1] = pixel[1];
-			tex->pixels[offset + 2] = pixel[2];
-			tex->pixels[offset + 3] = pixel[3];
+			tex->pixels[offset + 0] = (unsigned char) pixelf[0];
+			tex->pixels[offset + 1] = (unsigned char) pixelf[1];
+			tex->pixels[offset + 2] = (unsigned char) pixelf[2];
+			tex->pixels[offset + 3] = (unsigned char) pixelf[3];
 			offset += bpp;
 		}
 	}
@@ -530,10 +562,9 @@ static texgz_tex_t* naip_sampleNode(int zoom, int x, int y)
 		return NULL;
 	}
 
-	// naip data roughly corresponds to zoom 17 but
-	// we sample at zoom 18 to MSAA zoom 17
 	// sample the next/end LOD
-	if(zoom == 18)
+	// naip data roughly corresponds to zoom 17
+	if(zoom == 17)
 	{
 		naip_sampleEnd(tex, zoom, x, y);
 	}
@@ -589,7 +620,6 @@ static texgz_tex_t* naip_sampleNode(int zoom, int x, int y)
 	char fname[256];
 	snprintf(fname, 256, "naipjpg/%i/%i/%i.jpg", zoom, x, y);
 	fname[255] = '\0';
-	if(zoom < 18)
 	{
 		char pname[256];
 		snprintf(pname, 256, "naipjpg/%i/%i/%i.jpg.part", zoom, x, y);
@@ -658,10 +688,7 @@ static texgz_tex_t* naip_sampleNode(int zoom, int x, int y)
 	fail_save:
 		texgz_tex_delete(&down);
 	fail_down:
-		if(zoom < 18)
-		{
-			unlink(fname);
-		}
+		unlink(fname);
 	fail_export:
 		texgz_tex_delete(&tex);
 	return NULL;
