@@ -60,15 +60,44 @@ typedef struct naip_node_s
 a3d_list_t*  glist = NULL;
 naip_node_t* glru  = NULL;
 
-naip_node_t* naip_cache(naip_node_t* node)
+void naip_cache(naip_node_t* node)
 {
 	assert(node);
+
+	// update LRU if already cached
+	if(node->tex)
+	{
+		if(node == glru)
+		{
+			return;
+		}
+
+		naip_node_t* prev = node->prev;
+		naip_node_t* next = node->next;
+		if(prev)
+		{
+			prev->next = next;
+		}
+
+		if(next)
+		{
+			next->prev = prev;
+		}
+
+		node->prev = NULL;
+		node->next = glru;
+		glru->prev = NULL;
+		glru       = node;
+
+		return;
+	}
 
 	LOGI("import %s", node->fname);
 	node->tex = texgz_jp2_import(node->fname);
 	if(node->tex == NULL)
 	{
-		return NULL;
+		LOGE("fatal error importing %s", node->fname);
+		exit(EXIT_FAILURE);
 	}
 
 	// force the jp2 to RGBA
@@ -76,7 +105,9 @@ naip_node_t* naip_cache(naip_node_t* node)
 	                     TEXGZ_UNSIGNED_BYTE,
 	                     TEXGZ_RGBA) == 0)
 	{
-		goto fail_convert;
+		LOGE("fatal error converting %s", node->fname);
+		texgz_tex_delete(&node->tex);
+		exit(EXIT_FAILURE);
 	}
 
 	// insert node into cache
@@ -119,74 +150,100 @@ naip_node_t* naip_cache(naip_node_t* node)
 			node = node->next;
 		}
 	}
-
-	// success
-	return glru;
-
-	// failure
-	fail_convert:
-		texgz_tex_delete(&node->tex);
-	return NULL;
 }
 
-naip_node_t* naip_find(double lat, double lon)
+naip_node_t* naip_cache_findNode(double lat, double lon)
 {
-	// search the LRU
 	naip_node_t* iter = glru;
 	while(iter)
 	{
-		// if found update LRU
 		if((iter->t >= lat) &&
 		   (iter->b <= lat) &&
 		   (iter->l <= lon) &&
 		   (iter->r >= lon))
 		{
-			if(iter == glru)
-			{
-				return iter;
-			}
-
-			naip_node_t* prev = iter->prev;
-			naip_node_t* next = iter->next;
-			if(prev)
-			{
-				prev->next = next;
-			}
-
-			if(next)
-			{
-				next->prev = prev;
-			}
-
-			iter->prev = NULL;
-			iter->next = glru;
-			glru->prev = iter;
-			glru       = iter;
-
 			return iter;
 		}
 
 		iter = iter->next;
 	}
 
+	return NULL;
+}
+
+int naip_cache_isCached(int zoom, int x, int y)
+{
+	double lat0;
+	double lon0;
+	double lat1;
+	double lon1;
+	terrain_sample2coord(x, y, zoom, 0, 0,
+	                     &lat0, &lon0);
+	terrain_sample2coord(x, y, zoom,
+	                     TERRAIN_SAMPLES_TILE - 1,
+	                     TERRAIN_SAMPLES_TILE - 1,
+	                     &lat1, &lon1);
+
+	// check if a node intersects the tile
+	naip_node_t* iter = glru;
+	while(iter)
+	{
+		if((iter->t < lat1) ||
+		   (iter->b > lat0) ||
+		   (iter->l > lon1) ||
+		   (iter->r < lon0))
+		{
+			// not found
+		}
+		else
+		{
+			return 1;
+		}
+
+		iter = iter->next;
+	}
+
+	return 0;
+}
+
+int naip_cache_prefetch(int zoom, int x, int y)
+{
+	double lat0;
+	double lon0;
+	double lat1;
+	double lon1;
+	terrain_sample2coord(x, y, zoom, 0, 0,
+	                     &lat0, &lon0);
+	terrain_sample2coord(x, y, zoom,
+	                     TERRAIN_SAMPLES_TILE - 1,
+	                     TERRAIN_SAMPLES_TILE - 1,
+	                     &lat1, &lon1);
+
 	// search the list
+	int count = 0;
 	a3d_listitem_t* item = a3d_list_head(glist);
 	while(item)
 	{
 		// if found insert in LRU
-		iter = (naip_node_t*) a3d_list_peekitem(item);
-		if((iter->t >= lat) &&
-		   (iter->b <= lat) &&
-		   (iter->l <= lon) &&
-		   (iter->r >= lon))
+		naip_node_t* node = (naip_node_t*)
+		                    a3d_list_peekitem(item);
+		if((node->t < lat1) ||
+		   (node->b > lat0) ||
+		   (node->l > lon1) ||
+		   (node->r < lon0))
 		{
-			return naip_cache(iter);
+			// not found
+		}
+		else
+		{
+			naip_cache(node);
+			++count;
 		}
 
 		item = a3d_list_next(item);
 	}
 
-	return NULL;
+	return count;
 }
 
 int naip_mkdir(const char* fname)
@@ -463,7 +520,7 @@ static void naip_sampleEnd(texgz_tex_t* tex,
 			                   &lat, &lon);
 
 			// find/cache the naip image
-			naip_node_t* node = naip_find(lat, lon);
+			naip_node_t* node = naip_cache_findNode(lat, lon);
 			if(node == NULL)
 			{
 				offset += bpp;
@@ -562,11 +619,23 @@ static texgz_tex_t* naip_sampleNode(int zoom, int x, int y)
 		return NULL;
 	}
 
+	// prefetch images used by z17 (naip_sampleEnd)
+	// cache should easily hold all images needed for z12-z17
+	//     z12=256, z13=512, z14=1024
+	//     z15=2048, z16=4096, z17=8192
+	if(zoom == 12)
+	{
+		naip_cache_prefetch(zoom, x, y);
+	}
+
 	// sample the next/end LOD
 	// naip data roughly corresponds to zoom 17
 	if(zoom == 17)
 	{
-		naip_sampleEnd(tex, zoom, x, y);
+		if(naip_cache_isCached(zoom, x, y))
+		{
+			naip_sampleEnd(tex, zoom, x, y);
+		}
 	}
 	else
 	{
