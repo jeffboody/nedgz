@@ -86,7 +86,7 @@ void naip_cache(naip_node_t* node)
 
 		node->prev = NULL;
 		node->next = glru;
-		glru->prev = NULL;
+		glru->prev = node;
 		glru       = node;
 
 		return;
