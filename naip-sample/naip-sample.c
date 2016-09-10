@@ -418,8 +418,6 @@ static int naip_readXml(const char* fname)
 {
 	assert(fname);
 
-	LOGI("%s", fname);
-
 	FILE* f = fopen(fname, "r");
 	if(f == NULL)
 	{

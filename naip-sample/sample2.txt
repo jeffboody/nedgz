@@ -1,0 +1,105 @@
+input
+=====
+
+terrain
+jp2 image list (naip.xml)
+restart directory
+
+structures
+==========
+
+typedef struct
+{
+	char fname[256];
+	char id[256];
+	char url[256];
+
+	double t;
+	double l;
+	double b;
+	double r;
+
+	texgz_tex_t* tex;
+} naip_node_t;
+
+typedef struct
+{
+	int zoom;
+	int x;
+	int y;
+
+	texgz_tex_t* tex;
+
+	// cache key
+	a3d_listitem_t* key;
+} naip_tile_t;
+
+typedef struct
+{
+	a3d_list_t*  nodes;
+	a3d_list_t*  nodes_z12;
+	a3d_list_t*  tiles;
+	a3d_cache_t* cache_tile;
+	a3d_workq_t* workq_nodes;
+	a3d_workq_t* workq_tex;
+	a3d_workq_t* workq_sample;
+
+	// WORKQ error flag
+	pthread_mutex_t mutex;
+	int error;
+} naip_sampler_t;
+
+algo
+====
+
+a3d_workq_finish
+* wait until processing is complete
+
+naip_sampler_sampleNode
+1. z17 - naip_sampler_sampleNodeZ17
+2. z3/z12 - naip_sampler_restart
+3. z12 - naip_sampler_sampleNodeZ12
+	* continue
+4. create working texture
+5. recursively traverse terrain
+	* naip_sampler_sampleNode
+	* blit downscaled images to working texture
+	* delete tmp textures
+6. z12 - purge the texz cache and delete tiles
+7. return downscaled image
+
+naip_sampler_sampleNodeZ17
+1. save jp2
+2. downscale image
+3. evict tex from cache
+4. delete z17 texz save image
+5. return downscaled image
+
+naip_sampler_sampleNodeZ12
+1. prefetch jp2 images that cover a z12 terrain node
+	* WORKQ - prefetch into list
+2. forall z17 texz images that cover jp2 images
+	* WORKQ - precache
+3. forall jp2 images
+	* WORKQ - naip_sampler_sampleJp2
+4. close jp2 images
+5. remove jp2 image from list
+
+naip_sampler_sampleJp2
+
+pause
+=====
+
+create restart/naip.xml from uncompleted list
+
+cache
+=====
+
+zoom | array | count | dim  | size
+-----+-------+------+-------+------
+ z12 |  1x1  | 1     | 256  | 262kB
+ z13 |  2x2  | 4     | 512  | 1MB
+ z14 |  4x4  | 16    | 1024 | 4MB
+ z15 |  8x8  | 64    | 2048 | 16MB
+ z16 | 16x16 | 256   | 4096 | 64MB
+ z17 | 32x32 | 1024  | 8192 | 256MB

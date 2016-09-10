@@ -1,5 +1,5 @@
-TARGET   = naip-sample
-CLASSES  =
+TARGET   = naip-sample2
+CLASSES  = naip_database naip_node naip_tile naip_util
 SOURCE   = $(TARGET).c $(CLASSES:%=%.c)
 OBJECTS  = $(TARGET).o $(CLASSES:%=%.o)
 HFILES   = $(CLASSES:%=%.h)
