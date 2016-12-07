@@ -17,7 +17,7 @@ $(TARGET): $(OBJECTS) a3d
 .PHONY: a3d
 
 a3d:
-	$(MAKE) -C a3d -f Makefile
+	$(MAKE) -C a3d -f Makefile.sdl
 
 clean:
 	rm -f $(OBJECTS) *~ \#*\# $(TARGET)

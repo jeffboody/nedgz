@@ -42,12 +42,53 @@ typedef struct
 	double l;
 	double b;
 	double r;
+	int    year;
+	int    month;
+	int    day;
 } naip_item_t;
+
+static int naip_item_dateCompare(naip_item_t* a, naip_item_t* b)
+{
+	assert(a);
+	assert(b);
+
+	if(a->year > b->year)
+	{
+		return 1;
+	}
+	else if(a->year < b->year)
+	{
+		return -1;
+	}
+
+	// year is identical
+	if(a->month > b->month)
+	{
+		return 1;
+	}
+	else if(a->month < b->month)
+	{
+		return -1;
+	}
+
+	// year and month is identical
+	if(a->day > b->day)
+	{
+		return 1;
+	}
+	else if(a->day < b->day)
+	{
+		return -1;
+	}
+
+	return 0;
+}
 
 static naip_item_t* naip_item_new(const char* str_id,
                                   const char* str_url,
                                   const char* t, const char* l,
                                   const char* b, const char* r,
+                                  int year, int month, int day,
                                   int row, int col)
 {
 	assert(str_id);
@@ -74,6 +115,10 @@ static naip_item_t* naip_item_new(const char* str_id,
 	self->b = strtod(b, NULL);
 	self->r = strtod(r, NULL);
 
+	self->year  = year;
+	self->month = month;
+	self->day   = day;
+
 	double bb_t = (double) row;
 	double bb_l = (double) -col;
 	double bb_b = bb_t - 1.0;
@@ -83,8 +128,8 @@ static naip_item_t* naip_item_new(const char* str_id,
 	if((self->t < bb_b) || (self->b > bb_t) ||
 	   (self->l > bb_r) || (self->r < bb_l))
 	{
-		LOGE("invalid row=%i, col=%i, t=%lf, l=%lf, b=%lf, r=%lf",
-		     row, col, self->t, self->l, self->b, self->r);
+		LOGE("invalid id=%s, row=%i, col=%i, t=%lf, l=%lf, b=%lf, r=%lf",
+		     str_id, row, col, self->t, self->l, self->b, self->r);
 		goto fail_bb;
 	}
 
@@ -115,6 +160,7 @@ typedef struct
 	int idx_id;
 	int idx_bb;
 	int idx_url;
+	int idx_date;
 
 	char table[181*181];
 
@@ -172,10 +218,11 @@ static void naip_parser_reset(naip_parser_t* self)
 {
 	assert(self);
 
-	self->init    = 0;
-	self->idx_id  = -1;
-	self->idx_bb  = -1;
-	self->idx_url = -1;
+	self->init     = 0;
+	self->idx_id   = -1;
+	self->idx_bb   = -1;
+	self->idx_url  = -1;
+	self->idx_date = -1;
 }
 
 static naip_parser_t* naip_parser_new(void)
@@ -232,8 +279,6 @@ static void naip_parser_delete(naip_parser_t** _self)
 			naip_item_t* node = (naip_item_t*)
 			                    a3d_list_remove(self->list,
 			                                    &item);
-			LOGI("%i: id=%s, url=%s, t=%lf, l=%lf, b=%lf, r=%lf",
-			     idx, node->id, node->url, node->t, node->l, node->b, node->r);
 			if(f)
 			{
 				fprintf(f, "\t<node id=\"%s\" url=\"%s\" t=\"%lf\" l=\"%lf\" b=\"%lf\" r=\"%lf\" />\n",
@@ -324,17 +369,23 @@ static int naip_parser_readhdr(naip_parser_t* self, char* line)
 		{
 			self->idx_url = idx;
 		}
+		else if(strcmp(line, "lastUpdated") == 0)
+		{
+			self->idx_date = idx;
+		}
 
 		line = next;
 		++idx;
 	}
 
-	if((self->idx_id  == -1) ||
-	   (self->idx_bb  == -1) ||
-	   (self->idx_url == -1))
+	if((self->idx_id   == -1) ||
+	   (self->idx_bb   == -1) ||
+	   (self->idx_url  == -1) ||
+	   (self->idx_date == -1))
 	{
-		LOGE("invalid id=%i, bb=%i, url=%i",
-		     self->idx_id, self->idx_bb, self->idx_url);
+		LOGE("invalid id=%i, bb=%i, url=%i, date=%i",
+		     self->idx_id, self->idx_bb,
+		     self->idx_url, self->idx_date);
 		return 0;
 	}
 
@@ -387,15 +438,33 @@ static int naip_readbb(char* s, char** t, char** l, char** b, char** r)
 	return 1;
 }
 
+static int naip_readdate(char* s, int* year, int* month, int* day)
+{
+	assert(s);
+	assert(year);
+	assert(month);
+	assert(day);
+
+	// example: 2016-01-05
+	if(sscanf(s, "%i-%i-%i", year, month, day) != 3)
+	{
+		LOGE("invalid date=%s", s);
+		return 0;
+	}
+
+	return 1;
+}
+
 static int naip_parser_readbody(naip_parser_t* self, char* line,
                                 int row, int col)
 {
 	assert(self);
 	assert(line);
 
-	char* str_id  = NULL;
-	char* str_bb  = NULL;
-	char* str_url = NULL;
+	char* str_id   = NULL;
+	char* str_bb   = NULL;
+	char* str_url  = NULL;
+	char* str_date = NULL;
 
 	int   idx  = 0;
 	char* next = NULL;
@@ -414,13 +483,17 @@ static int naip_parser_readbody(naip_parser_t* self, char* line,
 		{
 			str_url = line;
 		}
+		else if(idx == self->idx_date)
+		{
+			str_date = line;
+		}
 
 		line = next;
 		++idx;
 	}
 
 
-	if(str_id && str_bb && str_url)
+	if(str_id && str_bb && str_url && str_date)
 	{
 		char* t = NULL;
 		char* l = NULL;
@@ -431,23 +504,54 @@ static int naip_parser_readbody(naip_parser_t* self, char* line,
 			return 0;
 		}
 
+		int year;
+		int month;
+		int day;
+		if(naip_readdate(str_date, &year, &month, &day) == 0)
+		{
+			return 0;
+		}
+
 		// add the node to the list
 		naip_item_t* node = naip_item_new(str_id, str_url,
 		                                  t, l, b, r,
+		                                  year, month, day,
 		                                  row, col);
 		if(node == NULL)
 		{
 			return 0;
 		}
 
+		// check if node aready exists
 		a3d_listitem_t* item = a3d_list_find(self->list,
 		                                     (const void*) node,
 		                                     naip_cmp);
 		if(item)
 		{
-			// aready exists
-			naip_item_delete(&node);
-			return 1;
+			naip_item_t* a = node;
+			naip_item_t* b = (naip_item_t*) a3d_list_peekitem(item);
+
+			// compare dates with existing node
+			if(naip_item_dateCompare(a, b) > 0)
+			{
+				// node is newer
+				LOGI("replace id=%s, date=%i-%i-%i with id=%i, date=%i-%i-%i",
+				     b->id, b->year, b->month, b->day,
+				     a->id, a->year, a->month, a->day);
+				a3d_list_remove(self->list, &item);
+				naip_item_delete(&b);
+			}
+			else
+			{
+				// node is same age or older
+				if(strcmp(a->id, b->id))
+				{
+					// log duplicates with different ids
+					LOGI("duplicate id=%s of id=%s", a->id, b->id);
+				}
+				naip_item_delete(&node);
+				return 1;
+			}
 		}
 
 		if(a3d_list_push(self->list, (const void*) node) == 0)
