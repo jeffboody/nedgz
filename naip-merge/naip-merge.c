@@ -141,15 +141,31 @@ static void naip_trim(char* line)
 	}
 }
 
-static int naip_cmp(const void* a, const void* b)
+static int naip_cmp(const void* _a, const void* _b)
 {
-	assert(a);
-	assert(b);
+	assert(_a);
+	assert(_b);
 
-	naip_item_t* item = (naip_item_t*) a;
-	char*        id   = (char*) b;
+	naip_item_t* a = (naip_item_t*) _a;
+	naip_item_t* b = (naip_item_t*) _b;
 
-	return strcmp(item->id, id);
+	// check if id matches
+	if(strcmp(a->id, b->id) == 0)
+	{
+		return 0;
+	}
+
+	// check if bounding box matches
+	if((a->t == b->t) &&
+	   (a->l == b->l) &&
+	   (a->b == b->b) &&
+	   (a->r == b->r))
+	{
+		return 0;
+	}
+
+	// nodes do not match
+	return 1;
 }
 
 static void naip_parser_reset(naip_parser_t* self)
@@ -415,15 +431,6 @@ static int naip_parser_readbody(naip_parser_t* self, char* line,
 			return 0;
 		}
 
-		a3d_listitem_t* item = a3d_list_find(self->list,
-		                                     (const void*) str_id,
-		                                     naip_cmp);
-		if(item)
-		{
-			// aready exists
-			return 1;
-		}
-
 		// add the node to the list
 		naip_item_t* node = naip_item_new(str_id, str_url,
 		                                  t, l, b, r,
@@ -431,6 +438,16 @@ static int naip_parser_readbody(naip_parser_t* self, char* line,
 		if(node == NULL)
 		{
 			return 0;
+		}
+
+		a3d_listitem_t* item = a3d_list_find(self->list,
+		                                     (const void*) node,
+		                                     naip_cmp);
+		if(item)
+		{
+			// aready exists
+			naip_item_delete(&node);
+			return 1;
 		}
 
 		if(a3d_list_push(self->list, (const void*) node) == 0)
