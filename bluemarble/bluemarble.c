@@ -23,59 +23,58 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "nedgz/nedgz_tile.h"
-#include "nedgz/nedgz_util.h"
+#include "terrain/terrain_util.h"
 #include "texgz/texgz_tex.h"
 #include "texgz/texgz_png.h"
-#include "libpak/pak_file.h"
 
 #define LOG_TAG "bluemarble"
 #include "nedgz/nedgz_log.h"
 
 #define SUBTILE_SIZE 256
 
-static void subtile2coord(int x, int y, int zoom,
-                          int i, int j, int m, int n,
-                          double* lat, double* lon)
+static int mymkdir(const char* fname)
 {
-	assert(lat);
-	assert(lon);
-	LOGD("debug x=%i, y=%i, zoom=%i, i=%i, j=%i, m=%i, n=%i",
-	     x, y, zoom, i, j, m, n);
+	assert(fname);
 
-	float s  = (float) SUBTILE_SIZE;
-	float c  = (float) NEDGZ_SUBTILE_COUNT;
-	float xx = (float) x;
-	float yy = (float) y;
-	float jj = (float) j;
-	float ii = (float) i;
-	float nn = (float) n/(s - 1.0f);
-	float mm = (float) m/(s - 1.0f);
+	int  len = strnlen(fname, 255);
+	char dir[256];
+	int  i;
+	for(i = 0; i < len; ++i)
+	{
+		dir[i]     = fname[i];
+		dir[i + 1] = '\0';
 
-	nedgz_tile2coord(xx + (jj + nn)/c, yy + (ii + mm)/c,
-	                 zoom, lat, lon);
-}
+		if(dir[i] == '/')
+		{
+			if(access(dir, R_OK) == 0)
+			{
+				// dir already exists
+				continue;
+			}
 
-static void tile_coord(nedgz_tile_t* self, int i, int j, int m, int n,
-                       double* lat, double* lon)
-{
-	assert(self);
-	assert(i >= 0);
-	assert(i < NEDGZ_SUBTILE_COUNT);
-	assert(j >= 0);
-	assert(j < NEDGZ_SUBTILE_COUNT);
-	assert(m >= 0);
-	assert(m < SUBTILE_SIZE);
-	assert(n >= 0);
-	assert(n < SUBTILE_SIZE);
-	LOGD("debug i=%i, j=%i, m=%i, n=%i", i, j, m, n);
+			// try to mkdir
+			if(mkdir(dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
+			{
+				if(errno == EEXIST)
+				{
+					// already exists
+				}
+				else
+				{
+					LOGE("mkdir %s failed", dir);
+					return 0;
+				}
+			}
+		}
+	}
 
-	subtile2coord(self->x, self->y, self->zoom,
-	              i, j, m, n, lat, lon);
+	return 1;
 }
 
 static void interpolatec(texgz_tex_t* tex,
@@ -85,7 +84,6 @@ static void interpolatec(texgz_tex_t* tex,
                          unsigned char* b)
 {
 	assert(tex);
-	LOGD("debug u=%f, v=%f", u, v);
 
 	// "float indices"
 	float pu = u*(tex->width - 1);
@@ -161,27 +159,22 @@ static void interpolatec(texgz_tex_t* tex,
 static void sample_data(texgz_tex_t* src,
                         texgz_tex_t* dst,
                         int x, int y,
-                        int i, int j,
                         int m, int n,
                         double latT, double lonL,
                         double latB, double lonR)
 {
 	assert(src);
 	assert(dst);
-	LOGD("debug x=%i, y=%i, i=%i, j=%i, m=%i, n=%i, latT=%lf, lonL=%lf, latB=%lf, lonR=%lf",
-	     x, y, i, j, m, n, latT, lonL, latB, lonR);
-
-	// make a dummy tile
-	nedgz_tile_t* tile = nedgz_tile_new(x, y, 9);
-	if(tile == NULL)
-	{
-		return;
-	}
 
 	// compute sample coords
 	double lat;
 	double lon;
-	tile_coord(tile, i, j, m, n, &lat, &lon);
+	float s  = (float) (SUBTILE_SIZE - 1);
+	float xx = (float) x;
+	float yy = (float) y;
+	float nn = (float) n/s;
+	float mm = (float) m/s;
+	terrain_tile2coord(xx + nn, yy + mm, 9, &lat, &lon);
 
 	// compute u, v
 	float u = (float) ((lon - lonL)/(lonR - lonL));
@@ -201,31 +194,16 @@ static void sample_data(texgz_tex_t* src,
 	pixels[idx + 0] = r;
 	pixels[idx + 1] = g;
 	pixels[idx + 2] = b;
-
-	nedgz_tile_delete(&tile);
 }
 
-static void sample_subtile(texgz_tex_t* src,
-                           pak_file_t* pak,
-                           int x, int y,
-                           int i, int j,
-                           double latT, double lonL,
-                           double latB, double lonR)
+static void sample_tile(texgz_tex_t* src,
+                        texgz_tex_t* dst,
+                        int month, int x, int y,
+                        double latT, double lonL,
+                        double latB, double lonR)
 {
 	assert(src);
-	assert(pak);
-	LOGD("debug x=%i, y=%i, i=%i, j=%i, latT=%lf, lonL=%lf, latB=%lf, lonR=%lf",
-	     x, y, i, j, latT, lonL, latB, lonR);
-
-	// create dst
-	texgz_tex_t* dst = texgz_tex_new(SUBTILE_SIZE, SUBTILE_SIZE,
-	                                 SUBTILE_SIZE, SUBTILE_SIZE,
-	                                 TEXGZ_UNSIGNED_BYTE,
-	                                 TEXGZ_RGB, NULL);
-	if(dst == NULL)
-	{
-		return;
-	}
+	assert(dst);
 
 	int m;
 	int n;
@@ -233,58 +211,28 @@ static void sample_subtile(texgz_tex_t* src,
 	{
 		for(n = 0; n < SUBTILE_SIZE; ++n)
 		{
-			sample_data(src, dst, x, y, i, j, m, n, latT, lonL, latB, lonR);
+			sample_data(src, dst, x, y, m, n,
+			            latT, lonL, latB, lonR);
 		}
 	}
 
-	// convert dst to 565
-	texgz_tex_convert(dst, TEXGZ_UNSIGNED_SHORT_5_6_5, TEXGZ_RGB);
-
-	char key[256];
-	snprintf(key, 256, "%i_%i", j, i);
-	pak_file_writek(pak, key);
-	texgz_tex_exportf(dst, pak->f);
-	texgz_tex_delete(&dst);
-}
-
-static void sample_tile(texgz_tex_t* src,
-                        int month, int x, int y,
-                        double latT, int lonL,
-                        double latB, int lonR)
-{
-	assert(src);
-	LOGD("debug month=%i, x=%i, y=%i, latT=%lf, lonL=%lf, latB=%lf, lonR=%lf",
-	     month, x, y, latT, lonL, latB, lonR);
-
+	// export the tile
 	char fname[256];
-	snprintf(fname, 256, "bluemarble%i/9/%i_%i.pak", month, x, y);
-	pak_file_t* pak = pak_file_open(fname, PAK_FLAG_WRITE);
-	if(pak == NULL)
-	{
-		return;
-	}
-
-	int i;
-	int j;
-	for(i = 0; i < NEDGZ_SUBTILE_COUNT; ++i)
-	{
-		for(j = 0; j < NEDGZ_SUBTILE_COUNT; ++j)
-		{
-			sample_subtile(src, pak, x, y, i, j, latT, lonL, latB, lonR);
-		}
-	}
-
-	pak_file_close(&pak);
+	snprintf(fname, 256, "png256/%i/9/%i/%i.png",
+	         month, x, y);
+	fname[255] = '\0';
+	mymkdir(fname);
+	texgz_png_export(dst, fname);
 }
 
-static void sample_sector(int month, int r, int c,
+static void sample_sector(texgz_tex_t* dst,
+                          int month, int r, int c,
                           double latT, double lonL,
                           double latB, double lonR,
                           const char* fname)
 {
+	assert(dst);
 	assert(fname);
-	LOGD("debug month=%i, r=%i, c=%i, latT=%lf, lonL=%ls, latB=%lf, lonR=%lf, fname=%s",
-         month, r, c, latT, lonL, latB, lonR, fname);
 
 	LOGI("%s", fname);
 
@@ -297,8 +245,8 @@ static void sample_sector(int month, int r, int c,
 	// convert src to 888 (should be already)
 	texgz_tex_convert(src, TEXGZ_UNSIGNED_BYTE, TEXGZ_RGB);
 
-	// 2^9*256/2048 gives 64 tiles at zoom=9
-	int t = 64;
+	// 2^9 gives 512 tiles at zoom=9
+	int t = 512;
 	int x;
 	int y;
 	int xmin = (t/4)*c;
@@ -309,7 +257,8 @@ static void sample_sector(int month, int r, int c,
 	{
 		for(x = xmin; x < xmax; ++x)
 		{
-			sample_tile(src, month, x, y, latT, lonL, latB, lonR);
+			sample_tile(src, dst, month, x, y,
+			            latT, lonL, latB, lonR);
 		}
 	}
 
@@ -318,64 +267,54 @@ static void sample_sector(int month, int r, int c,
 
 int main(int argc, char** argv)
 {
+	if(argc != 1)
+	{
+		LOGE("usage: %s", argv[0]);
+		return EXIT_FAILURE;
+	}
+
+	// create temporary working image
+	texgz_tex_t* dst = texgz_tex_new(SUBTILE_SIZE, SUBTILE_SIZE,
+	                                 SUBTILE_SIZE, SUBTILE_SIZE,
+	                                 TEXGZ_UNSIGNED_BYTE,
+	                                 TEXGZ_RGB, NULL);
+	if(dst == NULL)
+	{
+		return EXIT_FAILURE;
+	}
+
 	int         month;
 	char        fname[256];
-	const char* base = "nasa-blue-marble/world.topo.bathy.2004";
+	const char* base = "png/world.topo.bathy.2004";
 	const char* size = "3x21600x21600";
 	for(month = 1; month <= 12; ++month)
 	{
-		// create directories if necessary
-		char dname[256];
-		snprintf(dname, 256, "bluemarble%i", month);
-		if(mkdir(dname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
-		{
-			if(errno == EEXIST)
-			{
-				// already exists
-			}
-			else
-			{
-				LOGE("mkdir %s failed", dname);
-				return EXIT_FAILURE;
-			}
-		}
-		snprintf(dname, 256, "bluemarble%i/9", month);
-		if(mkdir(dname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
-		{
-			if(errno == EEXIST)
-			{
-				// already exists
-			}
-			else
-			{
-				LOGE("mkdir %s failed", dname);
-				return EXIT_FAILURE;
-			}
-		}
-
 		snprintf(fname, 256, "%s%02i.%s.A1.png", base, month, size);
-		sample_sector(month, 0, 0, 90.0, -180.0, 0.0, -90.0, fname);
+		sample_sector(dst, month, 0, 0, 90.0, -180.0, 0.0, -90.0, fname);
 
 		snprintf(fname, 256, "%s%02i.%s.B1.png", base, month, size);
-		sample_sector(month, 0, 1, 90.0, -90.0, 0.0, 0.0, fname);
+		sample_sector(dst, month, 0, 1, 90.0, -90.0, 0.0, 0.0, fname);
 
 		snprintf(fname, 256, "%s%02i.%s.C1.png", base, month, size);
-		sample_sector(month, 0, 2, 90.0, 0.0, 0.0, 90.0, fname);
+		sample_sector(dst, month, 0, 2, 90.0, 0.0, 0.0, 90.0, fname);
 
 		snprintf(fname, 256, "%s%02i.%s.D1.png", base, month, size);
-		sample_sector(month, 0, 3, 90.0, 90.0, 0.0, 180.0, fname);
+		sample_sector(dst, month, 0, 3, 90.0, 90.0, 0.0, 180.0, fname);
 
 		snprintf(fname, 256, "%s%02i.%s.A2.png", base, month, size);
-		sample_sector(month, 1, 0, 0.0, -180.0, -90.0, -90.0, fname);
+		sample_sector(dst, month, 1, 0, 0.0, -180.0, -90.0, -90.0, fname);
 
 		snprintf(fname, 256, "%s%02i.%s.B2.png", base, month, size);
-		sample_sector(month, 1, 1, 0.0, -90.0, -90.0, 0.0, fname);
+		sample_sector(dst, month, 1, 1, 0.0, -90.0, -90.0, 0.0, fname);
 
 		snprintf(fname, 256, "%s%02i.%s.C2.png", base, month, size);
-		sample_sector(month, 1, 2, 0.0, 0.0, -90.0, 90.0, fname);
+		sample_sector(dst, month, 1, 2, 0.0, 0.0, -90.0, 90.0, fname);
 
 		snprintf(fname, 256, "%s%02i.%s.D2.png", base, month, size);
-		sample_sector(month, 1, 3, 0.0, 90.0, -90.0, 180.0, fname);
+		sample_sector(dst, month, 1, 3, 0.0, 90.0, -90.0, 180.0, fname);
 	}
+
+	texgz_tex_delete(&dst);
+
 	return EXIT_SUCCESS;
 }

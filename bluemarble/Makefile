@@ -6,30 +6,30 @@ HFILES   = $(CLASSES:%=%.h)
 OPT      = -O2 -Wall
 #OPT      = -g -Wall
 CFLAGS   = $(OPT) -I.
-LDFLAGS  = -Llibpak -lpak -Ltexgz -ltexgz -Lnedgz -lnedgz -lpng -lm -lz
+LDFLAGS  = -Lnedgz -lnedgz -Ltexgz -ltexgz -Lterrain -lterrain -lpng -lm -lz
 CCC      = gcc
 
 all: $(TARGET)
 
-$(TARGET): $(OBJECTS) libpak texgz nedgz
+$(TARGET): $(OBJECTS) nedgz terrain texgz
 	$(CCC) $(OPT) $(OBJECTS) -o $@ $(LDFLAGS)
 
-.PHONY: libpak texgz nedgz
-
-libpak:
-	$(MAKE) -C libpak
-
-texgz:
-	$(MAKE) -C texgz
+.PHONY: nedgz terrain texgz
 
 nedgz:
 	$(MAKE) -C nedgz
 
+terrain:
+	$(MAKE) -C terrain
+
+texgz:
+	$(MAKE) -C texgz
+
 clean:
 	rm -f $(OBJECTS) *~ \#*\# $(TARGET)
-	$(MAKE) -C libpak clean
-	$(MAKE) -C texgz clean
 	$(MAKE) -C nedgz clean
-	rm libpak texgz nedgz
+	$(MAKE) -C terrain clean
+	$(MAKE) -C texgz clean
+	rm nedgz terrain texgz
 
 $(OBJECTS): $(HFILES)

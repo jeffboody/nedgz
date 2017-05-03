@@ -1,3 +1,3 @@
-ln -s ../../nedgz
 ln -s ../../texgz
-ln -s ../../libpak
+ln -s ../../terrain
+ln -s ../../nedgz
