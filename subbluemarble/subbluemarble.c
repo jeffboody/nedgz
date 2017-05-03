@@ -24,417 +24,276 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "nedgz/nedgz_tile.h"
-#include "nedgz/nedgz_util.h"
 #include "texgz/texgz_tex.h"
-#include "libpak/pak_file.h"
+#include "texgz/texgz_png.h"
 
 #define LOG_TAG "subbluemarble"
 #include "nedgz/nedgz_log.h"
 
 #define SUBTILE_SIZE 256
 
-static void interpolatec(texgz_tex_t* tex, float u, float v,
-                         unsigned char* r,
-                         unsigned char* g,
-                         unsigned char* b)
+static int mymkdir(const char* fname)
 {
-	assert(tex);
-	LOGD("debug u=%f, v=%f", u, v);
+	assert(fname);
 
-	// "float indices"
-	float pu = u*(SUBTILE_SIZE - 1);
-	float pv = v*(SUBTILE_SIZE - 1);
-
-	// determine indices to sample
-	int u0 = (int) pu;
-	int v0 = (int) pv;
-	int u1 = u0 + 1;
-	int v1 = v0 + 1;
-
-	// double check the indices
-	if(u0 < 0)
+	int  len = strnlen(fname, 255);
+	char dir[256];
+	int  i;
+	for(i = 0; i < len; ++i)
 	{
-		u0 = 0;
-	}
-	if(u1 >= SUBTILE_SIZE)
-	{
-		u1 = SUBTILE_SIZE - 1;
-	}
-	if(v0 < 0)
-	{
-		v0 = 0;
-	}
-	if(v1 >= SUBTILE_SIZE)
-	{
-		v1 = SUBTILE_SIZE - 1;
+		dir[i]     = fname[i];
+		dir[i + 1] = '\0';
+
+		if(dir[i] == '/')
+		{
+			if(access(dir, R_OK) == 0)
+			{
+				// dir already exists
+				continue;
+			}
+
+			// try to mkdir
+			if(mkdir(dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
+			{
+				if(errno == EEXIST)
+				{
+					// already exists
+				}
+				else
+				{
+					LOGE("mkdir %s failed", dir);
+					return 0;
+				}
+			}
+		}
 	}
 
-	// compute interpolation coordinates
-	float u0f = (float) u0;
-	float v0f = (float) v0;
-	float uf    = pu - u0f;
-	float vf    = pv - v0f;
-
-	// sample interpolation values
-	unsigned char* pixels = tex->pixels;
-	int            bpp    = texgz_tex_bpp(tex);
-	float r00   = (float) pixels[bpp*(v0*SUBTILE_SIZE + u0)];
-	float r01   = (float) pixels[bpp*(v1*SUBTILE_SIZE + u0)];
-	float r10   = (float) pixels[bpp*(v0*SUBTILE_SIZE + u1)];
-	float r11   = (float) pixels[bpp*(v1*SUBTILE_SIZE + u1)];
-	float g00   = (float) pixels[bpp*(v0*SUBTILE_SIZE + u0) + 1];
-	float g01   = (float) pixels[bpp*(v1*SUBTILE_SIZE + u0) + 1];
-	float g10   = (float) pixels[bpp*(v0*SUBTILE_SIZE + u1) + 1];
-	float g11   = (float) pixels[bpp*(v1*SUBTILE_SIZE + u1) + 1];
-	float b00   = (float) pixels[bpp*(v0*SUBTILE_SIZE + u0) + 2];
-	float b01   = (float) pixels[bpp*(v1*SUBTILE_SIZE + u0) + 2];
-	float b10   = (float) pixels[bpp*(v0*SUBTILE_SIZE + u1) + 2];
-	float b11   = (float) pixels[bpp*(v1*SUBTILE_SIZE + u1) + 2];
-
-	// interpolate u
-	float r0010 = r00 + uf*(r10 - r00);
-	float r0111 = r01 + uf*(r11 - r01);
-	float g0010 = g00 + uf*(g10 - g00);
-	float g0111 = g01 + uf*(g11 - g01);
-	float b0010 = b00 + uf*(b10 - b00);
-	float b0111 = b01 + uf*(b11 - b01);
-
-	// interpolate v
-	*r = (r0010 + vf*(r0111 - r0010) + 0.5f);
-	*g = (g0010 + vf*(g0111 - g0010) + 0.5f);
-	*b = (b0010 + vf*(b0111 - b0010) + 0.5f);
+	return 1;
 }
 
-static void sample_subtile(pak_file_t* pak, pak_file_t* subpak, int i, int j)
+static void sample_subtile(texgz_tex_t* dst, texgz_tex_t* src,
+                           int m, int n, int m0, int n0)
 {
-	assert(pak);
-	assert(subpak);
-	LOGD("debug i=%i, j=%i", i, j);
+	assert(dst);
+	assert(src);
 
-	// create the dst subtile
-	texgz_tex_t* tex = texgz_tex_new(SUBTILE_SIZE,
-	                                 SUBTILE_SIZE,
-	                                 SUBTILE_SIZE,
-	                                 SUBTILE_SIZE,
-	                                 TEXGZ_UNSIGNED_BYTE,
-	                                 TEXGZ_RGB,
-	                                 NULL);
-	if(tex == NULL)
+	int r = 0;
+	int g = 0;
+	int b = 0;
+
+	unsigned char* pixels = (unsigned char*) src->pixels;
+	int            bpp    = texgz_tex_bpp(src);
+
+	// sample the 00-quadrant
+	int mm = m0;
+	int nn = n0;
+	r += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 0];
+	g += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 1];
+	b += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 2];
+
+	// sample the 01-quadrant
+	mm = m0;
+	nn = n0 + 1;
+	r += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 0];
+	g += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 1];
+	b += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 2];
+
+	// sample the 10-quadrant
+	mm = m0 + 1;
+	nn = n0;
+	r += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 0];
+	g += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 1];
+	b += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 2];
+
+	// sample the 11-quadrant
+	mm = m0 + 1;
+	nn = n0 + 1;
+	r += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 0];
+	g += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 1];
+	b += (int) pixels[bpp*(mm*SUBTILE_SIZE + nn) + 2];
+
+	// average samples (e.g. box filter)
+	pixels = (unsigned char*) dst->pixels;
+	bpp    = texgz_tex_bpp(dst);
+	pixels[bpp*(m*SUBTILE_SIZE + n) + 0] = (unsigned char) (r/4);
+	pixels[bpp*(m*SUBTILE_SIZE + n) + 1] = (unsigned char) (g/4);
+	pixels[bpp*(m*SUBTILE_SIZE + n) + 2] = (unsigned char) (b/4);
+}
+
+static void sample_tile(texgz_tex_t* dst,
+                        int month, int zoom, int x, int y)
+{
+	assert(dst);
+
+	// open the src
+	char fname[256];
+	snprintf(fname, 256, "png256/%i/%i/%i/%i.png",
+	         month, zoom + 1, 2*x, 2*y);
+	texgz_tex_t* src00 = texgz_png_import(fname);
+	if(src00 == NULL)
 	{
 		return;
 	}
 
-	// sample the 00-quadrant
-	unsigned char r = 0;
-	unsigned char g = 0;
-	unsigned char b = 0;
-	int           m;
-	int           n;
-	int           size;
-	texgz_tex_t*  subtex;
-	int           half = SUBTILE_SIZE/2;
-	int           iprime = (2*i)%NEDGZ_SUBTILE_COUNT;
-	int           jprime = (2*j)%NEDGZ_SUBTILE_COUNT;
-	char          fname[256];
-	snprintf(fname, 256, "%i_%i", jprime, iprime);
-	size = pak_file_seek(subpak, fname);
-	subtex = (size > 0) ? texgz_tex_importf(subpak->f, size) : NULL;
-	if(subtex)
+	snprintf(fname, 256, "png256/%i/%i/%i/%i.png",
+	         month, zoom + 1, 2*x, 2*y + 1);
+	texgz_tex_t* src01 = texgz_png_import(fname);
+	if(src01 == NULL)
 	{
-		texgz_tex_convert(subtex, TEXGZ_UNSIGNED_BYTE, TEXGZ_RGB);
-
-		for(m = 0; m < half; ++m)
-		{
-			for(n = 0; n < half; ++n)
-			{
-				// scale uv coords for 00-quadrant
-				float u = 2.0f*((float) n)/((float) SUBTILE_SIZE - 1.0f);
-				float v = 2.0f*((float) m)/((float) SUBTILE_SIZE - 1.0f);
-
-				interpolatec(subtex, u, v, &r, &g, &b);
-
-				unsigned char* pixels = (unsigned char*) tex->pixels;
-				int            bpp    = texgz_tex_bpp(tex);
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 0] = r;
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 1] = g;
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 2] = b;
-			}
-		}
-		texgz_tex_delete(&subtex);
+		goto fail_src01;
 	}
 
-	// sample the 01-quadrant
-	snprintf(fname, 256, "%i_%i", jprime, iprime + 1);
-	size = pak_file_seek(subpak, fname);
-	subtex = (size > 0) ? texgz_tex_importf(subpak->f, size) : NULL;
-	if(subtex)
+	snprintf(fname, 256, "png256/%i/%i/%i/%i.png",
+	         month, zoom + 1, 2*x + 1, 2*y);
+	texgz_tex_t* src10 = texgz_png_import(fname);
+	if(src10 == NULL)
 	{
-		texgz_tex_convert(subtex, TEXGZ_UNSIGNED_BYTE, TEXGZ_RGB);
-
-		for(m = half; m < SUBTILE_SIZE; ++m)
-		{
-			for(n = 0; n < half; ++n)
-			{
-				// scale uv coords for 01-quadrant
-				float u = 2.0f*((float) n)/((float) SUBTILE_SIZE - 1.0f);
-				float v = 2.0f*((float) m)/((float) SUBTILE_SIZE - 1.0f) - 1.0f;
-
-				interpolatec(subtex, u, v, &r, &g, &b);
-
-				unsigned char* pixels = (unsigned char*) tex->pixels;
-				int            bpp    = texgz_tex_bpp(tex);
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 0] = r;
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 1] = g;
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 2] = b;
-			}
-		}
-		texgz_tex_delete(&subtex);
+		goto fail_src10;
 	}
 
-	// sample the 10-quadrant
-	snprintf(fname, 256, "%i_%i", jprime + 1, iprime);
-	size = pak_file_seek(subpak, fname);
-	subtex = (size > 0) ? texgz_tex_importf(subpak->f, size) : NULL;
-	if(subtex)
+	snprintf(fname, 256, "png256/%i/%i/%i/%i.png",
+	         month, zoom + 1, 2*x + 1, 2*y + 1);
+	texgz_tex_t* src11 = texgz_png_import(fname);
+	if(src11 == NULL)
 	{
-		texgz_tex_convert(subtex, TEXGZ_UNSIGNED_BYTE, TEXGZ_RGB);
-
-		for(m = 0; m < half; ++m)
-		{
-			for(n = half; n < SUBTILE_SIZE; ++n)
-			{
-				// scale uv coords for 10-quadrant
-				float u = 2.0f*((float) n)/((float) SUBTILE_SIZE - 1.0f) - 1.0f;
-				float v = 2.0f*((float) m)/((float) SUBTILE_SIZE - 1.0f);
-
-				interpolatec(subtex, u, v, &r, &g, &b);
-
-				unsigned char* pixels = (unsigned char*) tex->pixels;
-				int            bpp    = texgz_tex_bpp(tex);
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 0] = r;
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 1] = g;
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 2] = b;
-			}
-		}
-		texgz_tex_delete(&subtex);
-	}
-
-	// sample the 11-quadrant
-	snprintf(fname, 256, "%i_%i", jprime + 1, iprime + 1);
-	size = pak_file_seek(subpak, fname);
-	subtex = (size > 0) ? texgz_tex_importf(subpak->f, size) : NULL;
-	if(subtex)
-	{
-		texgz_tex_convert(subtex, TEXGZ_UNSIGNED_BYTE, TEXGZ_RGB);
-
-		for(m = half; m < SUBTILE_SIZE; ++m)
-		{
-			for(n = half; n < SUBTILE_SIZE; ++n)
-			{
-				// scale uv coords for 11-quadrant
-				float u = 2.0f*((float) n)/((float) SUBTILE_SIZE - 1.0f) - 1.0f;
-				float v = 2.0f*((float) m)/((float) SUBTILE_SIZE - 1.0f) - 1.0f;
-
-				interpolatec(subtex, u, v, &r, &g, &b);
-
-				unsigned char* pixels = (unsigned char*) tex->pixels;
-				int            bpp    = texgz_tex_bpp(tex);
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 0] = r;
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 1] = g;
-				pixels[bpp*(m*SUBTILE_SIZE + n) + 2] = b;
-			}
-		}
-		texgz_tex_delete(&subtex);
-	}
-
-	texgz_tex_convert(tex, TEXGZ_UNSIGNED_SHORT_5_6_5, TEXGZ_RGB);
-
-	// j=dx, i=dy
-	snprintf(fname, 256, "%i_%i", j, i);
-	pak_file_writek(pak, fname);
-	texgz_tex_exportf(tex, pak->f);
-	texgz_tex_delete(&tex);
-}
-
-static void sample_tile(int month, int x, int y, int zoom)
-{
-	LOGD("debug month=%i, x=%i, y=%i, zoom=%i", month, x, y, zoom);
-
-	// create directories if necessary
-	char dname[256];
-	snprintf(dname, 256, "bluemarble%i/%i", month, zoom);
-	if(mkdir(dname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
-	{
-		if(errno == EEXIST)
-		{
-			// already exists
-		}
-		else
-		{
-			LOGE("mkdir %s failed", dname);
-			return;
-		}
-	}
-
-	// open the src
-	char fname[256];
-	snprintf(fname, 256, "bluemarble%i/%i/%i_%i.pak", month, zoom + 1, 2*x, 2*y);
-	pak_file_t* subpak00 = pak_file_open(fname, PAK_FLAG_READ);
-	snprintf(fname, 256, "bluemarble%i/%i/%i_%i.pak", month, zoom + 1, 2*x, 2*y + 1);
-	pak_file_t* subpak01 = pak_file_open(fname, PAK_FLAG_READ);
-	snprintf(fname, 256, "bluemarble%i/%i/%i_%i.pak", month, zoom + 1, 2*x + 1, 2*y);
-	pak_file_t* subpak10 = pak_file_open(fname, PAK_FLAG_READ);
-	snprintf(fname, 256, "bluemarble%i/%i/%i_%i.pak", month, zoom + 1, 2*x + 1, 2*y + 1);
-	pak_file_t* subpak11 = pak_file_open(fname, PAK_FLAG_READ);
-
-	if((subpak00 == NULL) &&
-	   (subpak01 == NULL) &&
-	   (subpak10 == NULL) &&
-	   (subpak11 == NULL))
-	{
-		goto fail_src;
-	}
-
-	// open the dst tile
-	snprintf(fname, 256, "bluemarble%i/%i/%i_%i.pak", month, zoom, x, y);
-	pak_file_t* pak = pak_file_open(fname, PAK_FLAG_WRITE);
-	if(pak == NULL)
-	{
-		goto fail_dst;
+		goto fail_src11;
 	}
 
 	// sample the 00-quadrant
-	int i;
-	int j;
-	int half = NEDGZ_SUBTILE_COUNT/2;
-	if(subpak00)
+	int m;
+	int n;
+	int half = SUBTILE_SIZE/2;
+	for(m = 0; m < half; ++m)
 	{
-		for(i = 0; i < half; ++i)
+		for(n = 0; n < half; ++n)
 		{
-			for(j = 0; j < half; ++j)
-			{
-				sample_subtile(pak, subpak00, i, j);
-			}
+			sample_subtile(dst, src00, m, n,
+			               2*m, 2*n);
 		}
-		pak_file_close(&subpak00);
 	}
 
 	// sample the 01-quadrant
-	if(subpak01)
+	for(m = half; m < SUBTILE_SIZE; ++m)
 	{
-		for(i = half; i < NEDGZ_SUBTILE_COUNT; ++i)
+		for(n = 0; n < half; ++n)
 		{
-			for(j = 0; j < half; ++j)
-			{
-				sample_subtile(pak, subpak01, i, j);
-			}
+			sample_subtile(dst, src01, m, n,
+			               2*(m - half), 2*n);
 		}
-		pak_file_close(&subpak01);
 	}
 
 	// sample the 10-quadrant
-	if(subpak10)
+	for(m = 0; m < half; ++m)
 	{
-		for(i = 0; i < half; ++i)
+		for(n = half; n < SUBTILE_SIZE; ++n)
 		{
-			for(j = half; j < NEDGZ_SUBTILE_COUNT; ++j)
-			{
-				sample_subtile(pak, subpak10, i, j);
-			}
+			sample_subtile(dst, src10, m, n,
+			               2*m, 2*(n - half));
 		}
-		pak_file_close(&subpak10);
 	}
 
 	// sample the 11-quadrant
-	if(subpak11)
+	for(m = half; m < SUBTILE_SIZE; ++m)
 	{
-		for(i = half; i < NEDGZ_SUBTILE_COUNT; ++i)
+		for(n = half; n < SUBTILE_SIZE; ++n)
 		{
-			for(j = half; j < NEDGZ_SUBTILE_COUNT; ++j)
-			{
-				sample_subtile(pak, subpak11, i, j);
-			}
+			sample_subtile(dst, src11, m, n,
+			               2*(m - half), 2*(n - half));
 		}
-		pak_file_close(&subpak11);
 	}
 
-	pak_file_close(&pak);
+	// export the tile
+	snprintf(fname, 256, "png256/%i/%i/%i/%i.png",
+	         month, zoom, x, y);
+	fname[255] = '\0';
+	mymkdir(fname);
+	texgz_png_export(dst, fname);
+
+	texgz_tex_delete(&src11);
+	texgz_tex_delete(&src10);
+	texgz_tex_delete(&src01);
+	texgz_tex_delete(&src00);
 
 	// success
 	return;
 
 	// failure
-	fail_dst:
-	fail_src:
-		pak_file_close(&subpak00);
-		pak_file_close(&subpak01);
-		pak_file_close(&subpak10);
-		pak_file_close(&subpak11);
+	fail_src11:
+		texgz_tex_delete(&src10);
+	fail_src10:
+		texgz_tex_delete(&src01);
+	fail_src01:
+		texgz_tex_delete(&src00);
 }
 
-static void sample_tile_range(int month, int x0, int y0, int x1, int y1, int zoom)
+static void sample_tile_range(texgz_tex_t* dst,
+                              int month, int zoom,
+                              int x0, int y0, int x1, int y1)
 {
-	LOGD("debug month=%i, x0=%i, y0=%i, x1=%i, y1=%i, zoom=%i", month, x0, y0, x1, y1, zoom);
+	assert(dst);
 
 	int x;
 	int y;
-	int idx   = 1;
+	int idx   = 0;
 	int count = (x1 - x0)*(y1 - y0);
 	for(y = y0; y < y1; ++y)
 	{
 		for(x = x0; x < x1; ++x)
 		{
-			LOGI("%i: %i/%i: x=%i, y=%i", month, idx++, count, x, y);
+			++idx;
+			if((x%8 == 0) && (y%8 == 0))
+			{
+				LOGI("%i: %i/%i: zoom=%i, x=%i, y=%i",
+				     month, idx, count, zoom, x, y);
+			}
 
-			sample_tile(month, x, y, zoom);
+			sample_tile(dst, month, zoom, x, y);
 		}
 	}
 }
 
 int main(int argc, char** argv)
 {
-	if(argc != 2)
+	if(argc != 1)
 	{
-		LOGE("usage: %s [zoom]", argv[0]);
+		LOGE("usage: %s", argv[0]);
 		return EXIT_FAILURE;
 	}
 
-	// determine range of candidate tiles
-	int zoom = (int) strtol(argv[1], NULL, 0);
-	int x0   = 0;
-	int y0   = 0;
-	int x1   = (int) powl(2, zoom)/NEDGZ_SUBTILE_COUNT;
-	int y1   = (int) powl(2, zoom)/NEDGZ_SUBTILE_COUNT;
-
-	// sample the set of tiles whose origin should cover range
-	// again, due to overlap with other flt tiles the sampling
-	// actually occurs over the entire flt_xx set
-	int month;
-	for(month = 1; month <= 12; ++month)
+	// create temporary working image
+	texgz_tex_t* dst = texgz_tex_new(SUBTILE_SIZE, SUBTILE_SIZE,
+	                                 SUBTILE_SIZE, SUBTILE_SIZE,
+	                                 TEXGZ_UNSIGNED_BYTE,
+	                                 TEXGZ_RGB, NULL);
+	if(dst == NULL)
 	{
-		// create directories if necessary
-		char dname[256];
-		snprintf(dname, 256, "bluemarble%i", month);
-		if(mkdir(dname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
-		{
-			if(errno == EEXIST)
-			{
-				// already exists
-			}
-			else
-			{
-				LOGE("mkdir %s failed", dname);
-				return EXIT_FAILURE;
-			}
-		}
-
-		sample_tile_range(month, x0, y0, x1, y1, zoom);
+		return EXIT_FAILURE;
 	}
+
+	// sample remaining zoom levels
+	int zoom;
+	for(zoom = 8; zoom >=0; --zoom)
+	{
+		int x0   = 0;
+		int y0   = 0;
+		int x1   = (int) powl(2, zoom);
+		int y1   = (int) powl(2, zoom);
+
+		int month;
+		for(month = 1; month <= 12; ++month)
+		{
+			sample_tile_range(dst, month, zoom,
+			                  x0, y0, x1, y1);
+		}
+	}
+
+	texgz_tex_delete(&dst);
 
 	// success
 	return EXIT_SUCCESS;
