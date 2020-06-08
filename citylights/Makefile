@@ -4,9 +4,8 @@ SOURCE   = $(TARGET).c $(CLASSES:%=%.c)
 OBJECTS  = $(TARGET).o $(CLASSES:%=%.o)
 HFILES   = $(CLASSES:%=%.h)
 OPT      = -O2 -Wall -Wno-format-truncation
-#OPT      = -g -Wall
 CFLAGS   = $(OPT) -I.
-LDFLAGS  = -Lnedgz -lnedgz -Ltexgz -ltexgz -Lterrain -lterrain -Llibcc -lcc -lpng -lm -lz
+LDFLAGS  = -Lnedgz -lnedgz -Ltexgz -ltexgz -Lterrain -lterrain -Llibcc -lcc -lm -lz
 CCC      = gcc
 
 all: $(TARGET)
@@ -34,6 +33,6 @@ clean:
 	$(MAKE) -C nedgz clean
 	$(MAKE) -C terrain clean
 	$(MAKE) -C texgz clean
-	rm libcc nedgz terrain texgz
+	rm lodepng libcc nedgz terrain texgz
 
 $(OBJECTS): $(HFILES)

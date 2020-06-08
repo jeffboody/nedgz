@@ -4,17 +4,19 @@ SOURCE   = $(TARGET).c $(CLASSES:%=%.c)
 OBJECTS  = $(TARGET).o $(CLASSES:%=%.o)
 HFILES   = $(CLASSES:%=%.h)
 OPT      = -O2 -Wall
-#OPT      = -g -Wall
 CFLAGS   = $(OPT) -I.
-LDFLAGS  = -Lnedgz -lnedgz -Ltexgz -ltexgz -Lterrain -lterrain -lpng -lm -lz
+LDFLAGS  = -Lnedgz -lnedgz -Ltexgz -ltexgz -Lterrain -lterrain -Llibcc -lcc -lm -lz
 CCC      = gcc
 
 all: $(TARGET)
 
-$(TARGET): $(OBJECTS) nedgz terrain texgz
+$(TARGET): $(OBJECTS) libcc nedgz terrain texgz
 	$(CCC) $(OPT) $(OBJECTS) -o $@ $(LDFLAGS)
 
-.PHONY: nedgz terrain texgz
+.PHONY: libcc nedgz terrain texgz
+
+libcc:
+	$(MAKE) -C libcc
 
 nedgz:
 	$(MAKE) -C nedgz
@@ -27,9 +29,10 @@ texgz:
 
 clean:
 	rm -f $(OBJECTS) *~ \#*\# $(TARGET)
+	$(MAKE) -C libcc clean
 	$(MAKE) -C nedgz clean
 	$(MAKE) -C terrain clean
 	$(MAKE) -C texgz clean
-	rm nedgz terrain texgz
+	rm lodepng libcc nedgz terrain texgz
 
 $(OBJECTS): $(HFILES)

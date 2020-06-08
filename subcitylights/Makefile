@@ -6,7 +6,7 @@ HFILES   = $(CLASSES:%=%.h)
 OPT      = -O2 -Wall
 #OPT      = -g -Wall
 CFLAGS   = $(OPT) -I.
-LDFLAGS  = -Ltexgz -ltexgz -Lnedgz -lnedgz -Llibcc -lcc -lpng -lm -lz
+LDFLAGS  = -Ltexgz -ltexgz -Lnedgz -lnedgz -Llibcc -lcc -lm -lz
 CCC      = gcc
 
 all: $(TARGET)
@@ -30,6 +30,6 @@ clean:
 	$(MAKE) -C libcc clean
 	$(MAKE) -C texgz clean
 	$(MAKE) -C nedgz clean
-	rm libcc texgz nedgz
+	rm lodepng libcc texgz nedgz
 
 $(OBJECTS): $(HFILES)
